@@ -295,14 +295,17 @@ export const utils = {
     return ts + d2 * r;
   },
 
-  lerp: function (r, v1, v2) {
+	lerp: function (r, v1, v2)
+	{
+        //console.log("lerp r, v1, v2", r, v1, v2);
     const ret = {
       x: v1.x + r * (v2.x - v1.x),
       y: v1.y + r * (v2.y - v1.y),
     };
     if (!!v1.z && !!v2.z) {
       ret.z = v1.z + r * (v2.z - v1.z);
-    }
+	  }
+      //console.log("lerp ret", ret);
     return ret;
   },
 
@@ -1339,7 +1342,7 @@ export const utils = {
           (((r * (c2._t1 + c2._t2)) / 2) | 0) / r,
       ];
     }
-
+      //console.log("Before split 0.5", c1, c2);
     let cc1 = c1.split(0.5),
       cc2 = c2.split(0.5),
       pairs = [
@@ -1362,7 +1365,9 @@ export const utils = {
 
     if (pairs.length === 0) return results;
 
-    pairs.forEach(function (pair) {
+	  pairs.forEach(function (pair)
+	  {
+		  //console.log('pair', pair);
       results = results.concat(
         utils.pairiteration(pair.left, pair.right, threshold)
       );
@@ -1565,58 +1570,122 @@ export const utils = {
 	return arrSVG.join(" ");
   },
 
-  svg2Poly: function(strSVG){
-	  //text.match(/\S+/g) split and remove whitespace
-	  let svgTokens = strSVG.match(/\S+/g);
-	  let curves = [];
-	  let lastPoint = {x:0, y:0};
-	  let firstPoint = lastPoint;
-	  let parsePoints = new Array(3);
-	  let iIdx = 0;
-//	  let cw = 0;
-      //console.log("svg2poly svg ", strSVG);
-	  while(iIdx < svgTokens.length){
-		  if(svgTokens[iIdx] == 'M'){
-			  curves = []; //Only one shape allowed
-			  lastPoint = utils.getSvgPoint(svgTokens, iIdx + 1);
-			  firstPoint = lastPoint;
-			  iIdx += 3;
-		  }else if(svgTokens[iIdx] == 'C'){
-			  //New bezier curve
-			  parsePoints[0] = utils.getSvgPoint(svgTokens, iIdx + 1);
-			  parsePoints[1] = utils.getSvgPoint(svgTokens, iIdx + 3);
-			  parsePoints[2] = utils.getSvgPoint(svgTokens, iIdx + 5);
-			  let coords = [
-			    lastPoint.x, lastPoint.y, 
-			    parsePoints[0].x, parsePoints[0].y,
-			    parsePoints[1].x, parsePoints[1].y,
-			    parsePoints[2].x, parsePoints[2].y
-			  ];
-			  let bzc = new Bezier(coords);
-			  curves.push(bzc);
-			  lastPoint = parsePoints[2];
-//			  cw += (bzc.clockwise)?1:-1;
-			  iIdx += 7;
-		  }else if(svgTokens[iIdx] == 'L'){
-			  parsePoints[0] = utils.getSvgPoint(svgTokens, iIdx + 1);
-			  let bzl = utils.makeline(lastPoint, parsePoints[0]);
-			  curves.push(bzl);
-//			  cw += (bzl.clockwise)?1:-1;
-			  lastPoint = parsePoints[0];
-			  iIdx += 3;
-		  }else if(svgTokens[iIdx] == 'Z'){
-			  if((firstPoint.x != lastPoint.x) || (firstPoint.y != lastPoint.y)){
-				  curves.push(utils.makeline(lastPoint, firstPoint));
-			  }
-			  iIdx += 1;
-		  }
-	  }
-	  //console.log("svg2poly ", curves);
-	  if(curves.length == 0)return null;
-	  let pb = new PolyBezier(curves);
-//	  pb.cw = cw;
-	  return pb;
-  },
+	svg2Beziers: function (strSVG)
+	{
+		//text.match(/\S+/g) split and remove whitespace
+		let svgTokens = strSVG.match(/\S+/g);
+		let beziers = [];
+		let lastPoint = { x: 0, y: 0 };
+		let firstPoint = lastPoint;
+		let parsePoints = new Array(3);
+		let iIdx = 0;
+		//	  let cw = 0;
+		//console.log("svg2poly svg ", strSVG);
+		while (iIdx < svgTokens.length)
+		{
+			if (svgTokens[iIdx] == 'M')
+			{
+				lastPoint = utils.getSvgPoint(svgTokens, iIdx + 1);
+				firstPoint = lastPoint;
+				iIdx += 3;
+			} else if (svgTokens[iIdx] == 'C')
+			{
+				//New bezier curve
+				parsePoints[0] = utils.getSvgPoint(svgTokens, iIdx + 1);
+				parsePoints[1] = utils.getSvgPoint(svgTokens, iIdx + 3);
+				parsePoints[2] = utils.getSvgPoint(svgTokens, iIdx + 5);
+				let coords = [
+					lastPoint.x, lastPoint.y,
+					parsePoints[0].x, parsePoints[0].y,
+					parsePoints[1].x, parsePoints[1].y,
+					parsePoints[2].x, parsePoints[2].y
+				];
+				let bzc = new Bezier(coords);
+				beziers.push(bzc);
+				lastPoint = parsePoints[2];
+				//			  cw += (bzc.clockwise)?1:-1;
+				iIdx += 7;
+			} else if (svgTokens[iIdx] == 'L')
+			{
+				parsePoints[0] = utils.getSvgPoint(svgTokens, iIdx + 1);
+				let bzl = utils.makeline(lastPoint, parsePoints[0]);
+				beziers.push(bzl);
+				//			  cw += (bzl.clockwise)?1:-1;
+				lastPoint = parsePoints[0];
+				iIdx += 3;
+			} else if (svgTokens[iIdx] == 'Z')
+			{
+				if ((firstPoint.x != lastPoint.x) || (firstPoint.y != lastPoint.y))
+				{
+					beziers.push(utils.makeline(lastPoint, firstPoint));
+				}
+				iIdx += 1;
+			}
+		}
+		//console.log("svg2poly ", curves);
+		if (beziers.length == 0) return null;
+		return beziers;
+	},
+
+	svg2Poly: function (strSVG)
+	{
+		//text.match(/\S+/g) split and remove whitespace
+		let svgTokens = strSVG.match(/\S+/g);
+		let curves = [];
+		let lastPoint = { x: 0, y: 0 };
+		let firstPoint = lastPoint;
+		let parsePoints = new Array(3);
+		let iIdx = 0;
+		//	  let cw = 0;
+		//console.log("svg2poly svg ", strSVG);
+		while (iIdx < svgTokens.length)
+		{
+			if (svgTokens[iIdx] == 'M')
+			{
+				curves = []; //Only one shape allowed
+				lastPoint = utils.getSvgPoint(svgTokens, iIdx + 1);
+				firstPoint = lastPoint;
+				iIdx += 3;
+			} else if (svgTokens[iIdx] == 'C')
+			{
+				//New bezier curve
+				parsePoints[0] = utils.getSvgPoint(svgTokens, iIdx + 1);
+				parsePoints[1] = utils.getSvgPoint(svgTokens, iIdx + 3);
+				parsePoints[2] = utils.getSvgPoint(svgTokens, iIdx + 5);
+				let coords = [
+					lastPoint.x, lastPoint.y,
+					parsePoints[0].x, parsePoints[0].y,
+					parsePoints[1].x, parsePoints[1].y,
+					parsePoints[2].x, parsePoints[2].y
+				];
+				let bzc = new Bezier(coords);
+				curves.push(bzc);
+				lastPoint = parsePoints[2];
+				//			  cw += (bzc.clockwise)?1:-1;
+				iIdx += 7;
+			} else if (svgTokens[iIdx] == 'L')
+			{
+				parsePoints[0] = utils.getSvgPoint(svgTokens, iIdx + 1);
+				let bzl = utils.makeline(lastPoint, parsePoints[0]);
+				curves.push(bzl);
+				//			  cw += (bzl.clockwise)?1:-1;
+				lastPoint = parsePoints[0];
+				iIdx += 3;
+			} else if (svgTokens[iIdx] == 'Z')
+			{
+				if ((firstPoint.x != lastPoint.x) || (firstPoint.y != lastPoint.y))
+				{
+					curves.push(utils.makeline(lastPoint, firstPoint));
+				}
+				iIdx += 1;
+			}
+		}
+		//console.log("svg2poly ", curves);
+		if (curves.length == 0) return null;
+		let pb = new PolyBezier(curves);
+		//	  pb.cw = cw;
+		return pb;
+	},
 
   svg2Polys: function(strSVG){
 	  //text.match(/\S+/g) split and remove whitespace

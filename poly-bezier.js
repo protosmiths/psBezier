@@ -1,10 +1,12 @@
 import { utils } from "./utils.js";
+
+
 //const PolyBezier = (function () {
 /**
  * Poly Bezier
  * @param {[type]} curves [description]
  */
-export class PolyBezier
+class PolyBezier
 {
     static debugObj = null;
     constructor(curves)
@@ -20,6 +22,10 @@ export class PolyBezier
                 {
                     this.curves.push(new Bezier(curves.curves[iIdx]));
                 }
+            } else if (typeof curves === 'string')
+            {
+                console.log('PolyBezier string', curves);
+                this.curves = utils.svg2Beziers(curves);
             } else
             {
                 this.curves = curves;
@@ -42,14 +48,14 @@ export class PolyBezier
         //be possible. In general, a single bezier does not go that far. And a line should be 0 (suspect
         //there is a problem with the endpoint derivatives of lines). In any case, I am seeing unexpected
         //values.
-        let cwCnt = 0;
-        let lastPt = this.curves.at(-1).get(0);
-        for (let iIdx = 0; iIdx < this.curves.length; iIdx++)
-        {
-            let thisPt = this.curves[iIdx].get(0);
-            cwCnt += (thisPt.x - lastPt.x) * (thisPt.y + lastPt.y);
-            lastPt = { x: thisPt.x, y: thisPt.y };
-        }
+        //let cwCnt = 0;
+        //let lastPt = this.curves.at(-1).get(0);
+        //for (let iIdx = 0; iIdx < this.curves.length; iIdx++)
+        //{
+        //    let thisPt = this.curves[iIdx].get(0);
+        //    cwCnt += (thisPt.x - lastPt.x) * (thisPt.y + lastPt.y);
+        //    lastPt = { x: thisPt.x, y: thisPt.y };
+        //}
         // let lastDeri = this.curves.at(-1).derivative(1);
         // lastDeri = {pt:lastDeri, size:Math.sqrt(lastDeri.x*lastDeri.x + lastDeri.y*lastDeri.y)};
         // // console.log('end derivative', lastDeri);
@@ -119,8 +125,40 @@ export class PolyBezier
         // //console.log("PolyBezier curve.clockwise", curve.clockwise);
         // cwCnt += (curve.clockwise)?1:-1;
         // });
-        this.cw = (cwCnt >= 0);
+        //this.cw = (cwCnt >= 0);
         // console.log("PolyBezier cw", cwCnt, this.cw);
+        // Determine orientation based on simplified signed area
+        this.area = this.computeSignedArea();
+        this.cw = this.area < 0; // Negative area indicates CW, positive indicates CCW
+    }
+
+    /**
+     * Computes the signed area of the PolyBezier using a simplified method.
+     * Sums the areas of triangles formed by a fixed point (e.g., origin)
+     * and the endpoints of each Bezier segment.
+     * @returns {number} Signed area of the PolyBezier.
+     */
+    computeSignedArea()
+    {
+        //const fixedPoint = { x: 0, y: 0 }; // You can choose a different fixed point if needed
+        let fixedPoint = this.curves[0].points[0];
+        let totalArea = 0;
+
+        this.curves.forEach(curve =>
+        {
+            const points = curve.points;
+            if (points.length < 2) return;
+
+            for (let i = 0; i < points.length - 1; i++)
+            {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                const triangleArea = (p1.x * p2.y - p2.x * p1.y) / 2;
+                totalArea += triangleArea;
+            }
+        });
+
+        return totalArea;
     }
 
     valueOf()
@@ -174,6 +212,92 @@ export class PolyBezier
             utils.expandbox(bbox, c[i].bbox());
         }
         return bbox;
+    }
+
+    /**
+     * Returns the spatial point for a given global t value.
+     * @param {number} global_t - A float representing the t value relative to the entire Path.
+     * @returns {Object} An object with x and y coordinates.
+     * 
+     * Note a new concept.  The global_t is the t value for the entire path.  The t value for the individual
+     * curves is the global_t minus the integer part of global_t.  The integer part of global_t tells us
+     * which curve we are on.  The fractional part tells us where on that curve we are.
+     */
+    get(global_t)
+    {
+        if (this.curves.length === 0)
+        {
+            throw new Error('No Bezier curves in Path.');
+        }
+
+        //This is simpler to implement than one might expect. We just need to take the integer part of global_t and the fractional part of global_t
+        //The integer part tells us which bezier we're on, and the fractional part tells us where on that bezier we are
+        let bezierIndex = Math.floor(global_t);
+        let local_t = global_t - bezierIndex;
+        //console.log('getPoint', global_t, bezierIndex, local_t, this.beziers);
+        return this.curves[bezierIndex].get(local_t);
+    }
+
+    /*
+    * Along with the get function, the idea of the global t value also makes possible a split function.  The split function
+    * will split the path between two global t values.  The split function will return a new path that is the split portion
+    * If the second global t value is less than the first, it will be assumed that the PolyBezier is a loop and the split will
+    * be done in two parts.  The first part will be from the first global t value to the end of the PolyBezier.  The second part
+    * will be from the beginning of the PolyBezier to the second global t value.
+    */
+    split(global_t1, global_t2)
+    {
+        if (this.curves.length === 0)
+        {
+            throw new Error('No Bezier curves in Path.');
+        }
+
+        let path = [];
+        let bezierInfo1 = this.getBezierIndex(global_t1);
+        let bezierInfo2 = this.getBezierIndex(global_t2);
+        if (bezierInfo2.bezierIndex < bezierInfo1.bezierIndex)
+        {
+            //We are on the same curve. Is this not a wrap around? Note that if it is a wraparond, it needs to go around the loop
+            //So we will let it fall through to the next section
+            if (bezierInfo1.local_t < bezierInfo2.local_t)
+            {
+                return this.curves[bezierInfo1.bezierIndex].split(bezierInfo1.local_t, bezierInfo2.local_t);
+            }
+        }
+        //Implied else
+
+        //Test for and handle wrap around
+        if (global_t2 < global_t1)
+        {
+            //The split returns an array of beziers.  We will push them onto the path. The ... is the spread operator
+            //It will take the array and push each element onto the path
+            path.push(...this.split(global_t1, this.curves.lenbth));
+            path.push(...this.split(0, global_t2));
+            return path;
+        }
+
+        //Now we can split the path between the two global t values where the second global t value is greater than the first
+        path.push(this.curves[bezierInfo1.bezierIndex].split(bezierInfo1.local_t, 1));
+        for (let iIdx = bezierInfo1.bezierIndex + 1; iIdx < bezierInfo2.bezierIndex; iIdx++)
+        {
+            path.push(new Bezier(this.curves[iIdx]));
+        }
+
+        path.push(this.curves[bezierInfo2.bezierIndex].split(0, bezierInfo2.local_t));
+
+        return path;
+    }
+
+    /*
+    * This is a helper function for the global T value. It will be passed a global t value and will return the bezier index
+    * and the local t value.  The global t value is the t value for the entire path.  The bezier index is the index of the bezier
+    * that the global t value is on.  The local t value is the t value for that bezier.
+    */
+    getBezierIndex(global_t)
+    {
+        let bezierIndex = Math.floor(global_t);
+        let local_t = global_t - bezierIndex;
+        return { bezierIndex: bezierIndex, local_t: local_t };
     }
 
     //Some discussion, at an intersection we are crossing another curve.  There are four possible transitions for a curve
@@ -459,386 +583,620 @@ export class PolyBezier
      * to continue on to another intersection beyond which they have the right spacing and should be
      * kept. The algorithm for finding self intersections is a little tricky
      */
-    offset(d, jtype)
+    offset(d, jtype, cp)
     {
+        //	if(jtype === undefined)var jtype = PolyBezier.NO_JOIN;
 
         const offset = [];
-        // Generate the offsets.  Note
         this.curves.forEach(function (v)
         {
             offset.push(...v.offset(d)); //Equivalent to offset = offset.concat(segOffsets);
-            // if(!v._linear)
-            // {
-            // let segOffsets = v.offset(d);
-            // for(let iIdxToken = 0; iIdxToken < segOffsets.length; iIdxToken++)
-            // {
-            // offset.push(segOffsets[iIdxToken]);
-            // if (PolyBezier.debugObj != null) {
-            // DrawUtils.displayPoint(segOffsets[iIdxToken].points[0], 0.05, PolyBezier.debugObj, '#ff0000');
-            // DrawUtils.displayPoint(segOffsets[iIdxToken].points[1], 0.01, PolyBezier.debugObj, '#00ff00');
-            // DrawUtils.displayPoint(segOffsets[iIdxToken].points[2], 0.01, PolyBezier.debugObj, '#00ff00');
-            // DrawUtils.displayPoint(segOffsets[iIdxToken].points[3], 0.05, PolyBezier.debugObj, '#0000ff');
-            // }
-
-            // }
-            // }
         });
-        // console.log('offset', offset);
-        // let adjT = [];
-        // offset.forEach(function(){adjT.push([0,1])});
-        let len = offset.length;
-        for (let iIdx = len - 1; iIdx >= 0; iIdx--)
-        {
-            if (offset[iIdx].length() >= d / 40) continue;
-            offset.splice(iIdx, 1);
-        }
-        let offsets = new PolyBezier(offset);
-        // console.log('offsets cw', offsets.cw);
-        //NOTE turns out joins must come first. The joins themselves could be part of the
-        //overlaps detected by intersections.
-        offsets.join(d, jtype);
-        // console.log('offsets', offsets);
-        let arrSelfies = offsets.self_intersections(d / 50);
-        let selfies = arrSelfies[0];
-        if (selfies.length == 0)
-        {
-            return [offsets];
-            // return [offsets, arrSelfies[0]];
-        }
-        if (selfies.length == 1)
-        {
-            let newLoop = [];
-            //Take the long way round
-            let thisI = selfies[0];
-            let branch = 0;
-            if (thisI.idx[0] < thisI.idx[1]) branch = 1;
-            let curveIdx = thisI.idx[branch];
-            newLoop.push(offsets.curves[curveIdx++].split(thisI.t[branch], 1));
-            while (curveIdx != thisI.idx[branch ^ 1])
-            {
-                if (curveIdx >= offsets.curves.length) curveIdx = 0;
-                newLoop.push(new Bezier(offsets.curves[curveIdx++]));
-            }
-            newLoop.push(offsets.curves[curveIdx++].split(0, thisI.t[branch ^ 1]));
-            return [new PolyBezier(newLoop)];
-            // return [[new PolyBezier(newLoop)], arrSelfies[0]];
-        }
-        //This way of making sorted lists does not work for these intersections. The problem is that
-        //for these intersection there is one poly and the idx element for the next intersection
-        //could be either branch. To make matters worse each intersection does not have a relationship
-        //with the next that is meaningful for our purposes. One answer is to "sort" each intersection
-        //selfies = this.makeSortedLists(selfies);
-        //let header = selfies.pop();
-        ///let idx0 = header.next[0];
-        // console.log('selfies before', selfies);
-        //The 0 side follows the path, we now need the 1 side to follow the branches
-        //Following the path is not enough. We should show the adjacent intersections
-        /*
-        * As one gets a better understanding, things can suddenly become clear. It is convenient to
-        * view the shape as a real line where we start at 0 and go to 1 with real number on curve 0.
-        * At curve 1 we go from 1.0 to 2, etc. Every intersection exists at two of these real numbers.
-        * One enters the intersection on one of the curves leading up to one of the values.  There are
-        * two paths in. There are two paths out leaving starting at one of the points on the intersection.
-        * Which point is represented by the 0 and 1 indexes. so idx[0] + t[0] is one point and idx[1] + t[1]
-        * the other point. The next intersection is the one with the next higher value, it could be either
-        * point. It doesn't matter.  It is possible that the next point is the opposite point in the same
-        * intersection.
-        */
-        let debugI = false;
-        for (let iIdx = 0; iIdx < selfies.length; iIdx++)
-        {
-            let thisI = selfies[iIdx];
-            if (selfies.length == 1)
-            {
-                thisI.prev = [0, 0];
-                thisI.next = [0, 0];
-                continue;
-            }
-            // console.log('thisI', thisI);
-            //We enter the intersection on the curve on the 0 index and leave to the next
-            //intersection on the 1 curve.  The branch is on the upper side of the 0 curve
-            let path0Start = thisI.realIdx[0];
-            let path1Start = thisI.realIdx[1];
-            if (debugI)
-            {
-                console.log('');
-                console.log('iIdxToken path0Start path1Start', iIdx, path0Start, path1Start);
-            }
-            //If we go through the loop and a field is still -1, we have a wraparound
-            thisI.prev = [-1, -1];
-            thisI.next = [-1, -1];
-            thisI.nextVal = [-1, -1];
-            thisI.prevVal = [-1, -1];
-            //Now we know where the present intersection is along the path. We search for
-            //the next and previous intersection on each branch. Wraparound is tricky
-            for (let iJdx = 0; iJdx < selfies.length; iJdx++)
-            {
-                // if(iJdx == iIdxToken)continue; //We will find short loops later
-                //We will include the possiblity of a loop
-                //if(iJdx == iIdxToken)continue;
-                let possibleI = selfies[iJdx];
-                let poss0 = possibleI.realIdx[0];
-                let poss1 = possibleI.realIdx[1];
-                //This intersection crosses at the two points above, the possible next is the closest
-                //higher
-                if (debugI) console.log('iJdx possible0Idx possible1Idx', iJdx, poss0, poss1);
-                if (poss0 > path0Start && iIdx != iJdx)
-                {
-                    //This intersection is after the being tested
-                    if (thisI.next[0] < 0)
-                    {
-                        //This is the first one found
-                        thisI.next[0] = iJdx;
-                        thisI.nextVal[0] = poss0;
-                        if (debugI) console.log('1st next[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                    } else
-                    {
-                        //Is this intersection closer than the one we have now?
-                        if (poss0 < thisI.nextVal[0])
-                        {
-                            thisI.next[0] = iJdx;
-                            thisI.nextVal[0] = poss0;
-                            if (debugI) console.log('Better next[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                        }
-                    }
-                }
-                if (poss1 > path0Start)
-                {
-                    if (thisI.next[0] < 0)
-                    {
-                        thisI.next[0] = iJdx;
-                        thisI.nextVal[0] = poss1;
-                        if (debugI) console.log('1st next[0] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                    } else
-                    {
-                        //Do we have a better match
-                        if (poss1 < thisI.nextVal[0])
-                        {
-                            thisI.next[0] = iJdx;
-                            thisI.nextVal[0] = poss1;
-                            if (debugI) console.log('Better next[0] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                        }
-                    }
-                }
-                if (poss0 > path1Start)
-                {
-                    // if(thisI.next[1] < 0)thisI.next[1] = iJdx;
-                    if (thisI.next[1] < 0)
-                    {
-                        thisI.next[1] = iJdx;
-                        thisI.nextVal[1] = poss0;
-                        if (debugI) console.log('1st next[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                    } else
-                    {
-                        //Do we have a better match
-                        if (poss0 < thisI.nextVal[1])
-                        {
-                            thisI.next[1] = iJdx;
-                            thisI.nextVal[1] = poss0;
-                            if (debugI) console.log('Better next[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                        }
-                    }
-                }
-                if (poss1 > path1Start && iIdx != iJdx)
-                {
-                    // if(thisI.next[1] < 0)thisI.next[1] = iJdx;
-                    if (thisI.next[1] < 0)
-                    {
-                        thisI.next[1] = iJdx;
-                        thisI.nextVal[1] = poss1;
-                        if (debugI) console.log('1st next[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                    } else
-                    {
-                        //Do we have a better match
-                        if (poss1 < thisI.nextVal[1])
-                        {
-                            thisI.next[1] = iJdx;
-                            thisI.nextVal[1] = poss1;
-                            if (debugI) console.log('Better next[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                        }
-                    }
-                }
-                // if(poss0  < path0Start)
-                // {
-                // if(thisI.prev[0] < 0)
-                // {
-                // thisI.prev[0] = iJdx;
-                // }else
-                // {
-                // //Do we have a better match
-                // if(poss0 > selfies[thisI.prev[0]].idx[0] + selfies[thisI.prev[0]].t[0])
-                // {
-                // thisI.prev[0] = iJdx;
-                // }
-                // }
-                // }
-                // if(poss1  < path1Start)
-                // {
-                // // if(thisI.prev[1] < 0)thisI.prev[1] = iJdx;
-                // if(thisI.prev[1] < 0)
-                // {
-                // thisI.prev[1] = iJdx;
-                // }else
-                // {
-                // //Do we have a better match
-                // if(poss1 > selfies[thisI.prev[1]].idx[1] + selfies[thisI.prev[1]].t[1])
-                // {
-                // thisI.prev[1] = iJdx;
-                // }
-                // }
-                // }
-                if (poss0 < path0Start && iIdx != iJdx)
-                {
-                    //This intersection is after the being tested
-                    if (thisI.prev[0] < 0)
-                    {
-                        //This is the first one found
-                        thisI.prev[0] = iJdx;
-                        thisI.prevVal[0] = poss0;
-                        if (debugI) console.log('1st prev[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                    } else
-                    {
-                        //Is this intersection closer than the one we have now?
-                        if (poss0 > thisI.prevVal[0])
-                        {
-                            thisI.prev[0] = iJdx;
-                            thisI.prevVal[0] = poss0;
-                            if (debugI) console.log('Better prev[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                        }
-                    }
-                }
-                if (poss1 < path0Start)
-                {
-                    if (thisI.prev[0] < 0)
-                    {
-                        thisI.prev[0] = iJdx;
-                        thisI.prevVal[0] = poss1;
-                        if (debugI) console.log('1st prev[0] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                    } else
-                    {
-                        //Do we have a better match
-                        if (poss1 > thisI.prevVal[0])
-                        {
-                            thisI.prev[0] = iJdx;
-                            thisI.prevVal[0] = poss1;
-                            if (debugI) console.log('Better prev 0 poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                        }
-                    }
-                }
-                if (poss0 < path1Start)
-                {
-                    // if(thisI.prev[1] < 0)thisI.prev[1] = iJdx;
-                    if (thisI.prev[1] < 0)
-                    {
-                        thisI.prev[1] = iJdx;
-                        thisI.prevVal[1] = poss0;
-                        if (debugI) console.log('1st prev[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                    } else
-                    {
-                        //Do we have a better match
-                        if (poss0 > thisI.prevVal[1])
-                        {
-                            thisI.prev[1] = iJdx;
-                            thisI.prevVal[1] = poss0;
-                            if (debugI) console.log('Better prev[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
-                        }
-                    }
-                }
-                if (poss1 < path1Start && iIdx != iJdx)
-                {
-                    // if(thisI.prev[1] < 0)thisI.prev[1] = iJdx;
-                    if (thisI.prev[1] < 0)
-                    {
-                        thisI.prev[1] = iJdx;
-                        thisI.prevVal[1] = poss1;
-                        if (debugI) console.log('1st prev[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                    } else
-                    {
-                        //Do we have a better match
-                        if (poss1 > thisI.prevVal[1])
-                        {
-                            thisI.prev[1] = iJdx;
-                            thisI.prevVal[1] = poss1;
-                            if (debugI) console.log('Better prev[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
-                        }
-                    }
-                }
-                // if((possibleI.idx[0] + possibleI.t[0])  < (path0Idx + path0T))
-                // {
-                // if(thisI.prev[0] < 0)thisI.prev[0] = selfies.length - 1 - iJdx;
-                // }
-                // if((possibleI.idx[1] + possibleI.t[1])  < (path1Idx + path1T))
-                // {
-                // if(thisI.prev[1] < 0)thisI.prev[1] = selfies.length - 1 - iJdx;
-                // }
-                // console.log('possibleI', possibleI);
-                //Look for next on 0 branch
-            }
-            // if(thisI.next[0] < 0)
-            // {
-            // thisI.next[0] = 0;
-            // }else
-            // {
-            // //Check for short loop
-            // let next0 = selfies[thisI.next[0]];
-            // if((next0.idx[1] + next0.t[1]) > (path1Idx + path1T))
-            // {
-            // thisI.next[0] = iIdxToken;
-            // }
-            // }
-            if (thisI.next[1] < 0)
-            {
-                thisI.next[1] = 0;
-            }
-            if (thisI.prev[0] < 0)
-            {
-                thisI.prev[0] = selfies.length - 1;
-            }
-            // if(thisI.prev[1] < 0)
-            // {
-            // thisI.prev[1] = selfies.length - 1;
-            // if((iIdxToken == 0) && (thisI.next[0] == 0))
-            // {
-            // thisI.prev[1] = 0;
-            // }
-            // }else
-            // {
-            // let prev1 = selfies[thisI.prev[1]];
-            // if((prev1.idx[0] + prev1.t[0]) < (path0Idx + path0T))
-            // {
-            // thisI.prev[1] = iIdxToken;
-            // }
-            // }
-        }
-        selfies.at(-1).next[1] = 0;
-        let loops = [];
-        //Get on the right path
-        // let curveIdx = selfies[idx0].idx[0];
-        // let nextT = 1;
-        // if(selfies[selfies[idx0].next[0]].idx[0] == curveIdx)nextT = selfies[selfies[idx0].next[0]].t[0];
-        // let midPt = offsets.curves[curveIdx].get((selfies[idx0].t[0] + nextT)/2);
-        // //This is wrong we are looking for the distance from the
-        // let proj = offsets.curves[selfies[idx0].idx[1]].project(midPt);
-        // console.log('proj midPt', proj, midPt);
-        // let startBranch = 0;
-        //if(proj.d < d)startBranch = 1; //midpt on curve 0 is inside offset distance
-        offsets.findLoops(selfies, 0, 1, 0, loops);
-        // console.log('loops', loops);
-        // console.log('selfies after', selfies);
-        let selectArr = 1;
-        if (PolyBezier.debugObj != null)
-        {
-            for (let iIdx = 0; iIdx < arrSelfies[selectArr].length; iIdx++)
-            {
-                let thisi = arrSelfies[selectArr][iIdx];
-                DrawUtils.displayPoint(offsets.curves[thisi.idx[0]].get(thisi.t[0]), 0.02, PolyBezier.debugObj, '#0f0f00');
-            }
-        }
-        return loops;
-        // return [loops, arrSelfies[selectArr]];
-        // return [[offsets], arrSelfies[selectArr]];
+        //This is the original offset
+        if (jtype === undefined) return [new PolyBezier(offset)];
 
+        let iIdx = 0;
+        while (iIdx < offset.length)
+        {
+            //iIdx = utils.join(offset, iIdx, PolyBezier.MITER_JOIN, d);
+            iIdx = utils.join(offset, iIdx, jtype, d, this.cw, cp);
+        }
+        //return [new PolyBezier(offset)];
+        if (jtype == PolyBezier.NO_JOIN) return [new PolyBezier(offset)];
+        //We can clear out the obvious
+        //Before looking for intersections remove paths that cross the offset curve
+        //return new PolyBezier(offset);
+        //Now we search for intersections
+        // let inout = (d < 0)?-1:1;
+        // for(iIdx = 0; iIdx < offset.length; iIdx++){
+        // offset[iIdx].orient = {r:inout, l:-inout};
+        // offset[iIdx].intersections = [];
+        // }
+        //Walk the curve segments looking for intersections with other segments
+        let intersections = [];
+        let points = [];
+        let iCode = 0;
+        for (let iC1dx = 0; iC1dx < offset.length; iC1dx++)
+        {
+            let c1 = offset[iC1dx];
+            //Look at all the segments that follow this one.  Don't need to look the one before
+            //those intersections have already been found
+            for (let iC2dx = iC1dx + 1; iC2dx < offset.length; iC2dx++)
+            {
+                let c2 = offset[iC2dx];
+                let intersect = c1.intersects(c2, Math.abs(d / 100));
+                for (let iIdx = 0; iIdx < intersect.length; iIdx++)
+                {
+                    let t = intersect[iIdx].split("/").map(v => parseFloat(v));
+                    //The sign of the cross product tells us which way the lines crossed.
+                    let xp = utils.crossProdBezier(c1, c2);
+                    intersections.push({ th: t[0], tt: t[1], refC: iC1dx, cross: xp, transition: 0, iCode: iCode });
+                    intersections.push({ th: t[1], tt: t[0], refC: iC2dx, cross: -xp, transition: 0, iCode: iCode });
+                    iCode++; //New code for next intersection
+                    points.push(c1.get(t[0]));
+                    //Record this intersection on 1st segment
+                    // let xref1 = c1.intersections.length;  //The next index on c1
+                    // let xref2 = c2.intersections.length;  //The next index on c2
+                    // //xrefC and xrefI allow one to find the same intersection on the other curve
+                    // c1.intersections.push({th:t[0], tt:t[1], xrefC:iC2dx, xrefI:xref2, cross:xp, out:true});
+                    // //Record this intersection on 2nd segment
+                    // c2.intersections.push({th:t[1], tt:t[0], xrefC:iC1dx, xrefI:xref1, cross:-xp, out:true});
+                }
+            }
+        }
+        let innerPoints = [];
+        for (let iC1dx = 0; iC1dx < offset.length; iC1dx++)
+        {
+            let c1 = offset[iC1dx];
+            for (let iC2dx = 0; iC2dx < this.curves.length; iC2dx++)
+            {
+                let cinner = this.curves[iC2dx];
+                let intersect = c1.intersects(cinner, Math.abs(d / 100));
+                for (let iIdx = 0; iIdx < intersect.length; iIdx++)
+                {
+                    let t = intersect[iIdx].split("/").map(v => parseFloat(v));
+                    //The sign of the cross product tells us which way the lines crossed.
+                    let xp = utils.crossProdBezier(c1, cinner);
+                    intersections.push({ th: t[0], tt: t[1], refC: iC1dx, cross: xp, transition: 3, iCode: -1 });
+                    innerPoints.push(c1.get(t[0]));
+                }
+            }
+        }
+        //Sort all the intersections by curve index and th.  They will be in the order that we would see walking the path
+        intersections.sort(function (a, b)
+        {
+            let idxDiff = a.refC - b.refC;
+            if (idxDiff != 0) return idxDiff;
+
+            return (a.th - b.th);
+        });
+        // for(let iC1dx = 0; iC1dx < offset.length; iC1dx++){
+        // let c1 = offset[iC1dx];
+        // c1.intersections.sort(function(a,b){
+        // let idxDiff = a.refC - b.refC;
+        // if(idxDiff != 0)return idxDiff;
+
+        // return (a.th - b.th);
+        // });
+        // }
+        //Use the codes to create xrefs
+        for (iIdx = 0; iIdx < intersections.length; iIdx++)
+        {
+            //
+            let i1 = intersections[iIdx];
+            if (i1.iCode < 0) continue; //Intersection with inner curves
+            //console.log("Poly offset intersection ", i1);
+            if (i1.xref != undefined) continue; //Already found
+            for (let iI2dx = iIdx + 1; iI2dx < intersections.length; iI2dx++)
+            {
+                let i2 = intersections[iI2dx];
+                if (i2.iCode < 0) continue; //Intersection with inner curves
+                if (i1.iCode == i2.iCode)
+                {
+                    //We have found the match
+                    i1.xref = iI2dx;
+                    i2.xref = iIdx;
+                    break;
+                }
+            }
+        }
+        let iT = "";
+        for (iIdx = 0; iIdx < intersections.length; iIdx++)
+        {
+            iT += intersections[iIdx].transition.toString();
+        }
+        console.log(iT);
+        //We now have all the intersections recognized and organized
+        //Let us find and mark all of the interior paths (paths that intersect
+        //the curves being outlined)
+        //Some tricky logic.  We want to make the transitions on the inner
+        //intersections depend on the onInnerPath state
+        let onInnerPath = false; //We start outside
+        let bTransitionOut = false;;
+        let iPrevInter = intersections[intersections.length - 1];
+        for (iIdx = 0; iIdx < intersections.length; iIdx++)
+        {
+            let iThis = intersections[iIdx];
+            if (onInnerPath)
+            {
+                //Looking for a transition out.
+                if (iThis.iCode < 0)
+                {
+                    onInnerPath = false;
+                    bTransitionOut = true;
+                } else
+                {
+                    //Mark everything on inner path as in
+                    iThis.transition = 3;
+                    bTransitionOut = false;
+                }
+            } else
+            {
+                //Looking for a transition in.
+                if (iThis.iCode < 0)
+                {
+                    onInnerPath = true;
+                    if (iPrevInter.iCode >= 0)
+                    {
+                        iPrevInter.transition = 2;
+                    }
+                } else
+                {
+                    if (bTransitionOut)
+                    {
+                        iThis.transition = 1;
+                    }
+                }
+                bTransitionOut = false;
+            }
+            iPrevInter = iThis;
+        }
+        iT = "";
+        for (iIdx = 0; iIdx < intersections.length; iIdx++)
+        {
+            iT += intersections[iIdx].transition.toString();
+        }
+        console.log(iT);
+        //We can remove all the paths that intersect the original shape
+        //	let innerIntersections = [];
+
+        //Now we can adjust the curves and remove inner loops.
+        let lastTransition = 0;
+        //1st pass to populate transitions with tentative values 
+        //lastTransition = this.determineTransitions(intersections, lastTransition);
+        //2nd pass to resolve tentative values
+        lastTransition = this.determineTransitions(intersections, lastTransition);
+        let offsetCurves = [];
+        let offsetCurve = this.getOuterPath(offset, intersections);
+        while (offsetCurve != null)
+        {
+            offsetCurves.push(new PolyBezier(offsetCurve));
+            offsetCurve = this.getOuterPath(offset, intersections);
+        }
+        return [offsetCurves, points, innerPoints];
+        // for(let iC1dx = 0; iC1dx < offset.length; iC1dx++){
+        // let c1 = offset[iCdx];
+        // for(iIdx = 0; iIdx < c1.intersections.length; iIdx++){
+        // //Here we go
+        // let c1i = c1.intersections[iIdx];
+        // let c2i = offset[c1i.xrefC].intersections[c1i.xrefI];
+        // }
+        // }
+        // let iIdx = 0;
+        // while(iIdx < offset.length){
+        // iIdx = utils.join(offset, iIdx);
+        // }
+        // if(jtype != 0){
+        // let iIdx = 0;
+        // while(iIdx < offset.length){
+        // iIdx = utils.join(offset, iIdx);
+        // }
+        // //Now search for intersections
+        // // iIdx = 0;
+        // // let remove = true;
+        // // for(; iIdx < offset.length; iIdx++){
+        // // let c1 = offset[iIdx];
+        // // //console.log("poly offset :", c1.points);
+        // // for(let iKdx = iIdx + 2; iKdx < offset.length; iKdx++){
+        // // let intersect = c1.intersects(offset[iKdx], 2);
+        // // if(intersect.length == 0){
+        // // //if(remove)offset.splice(iIdx, 1);
+        // // continue;
+        // // }
+        // // //We have an intersections
+        // // let t = intersect[0].split("/").map(v => parseFloat(v));
+        // // let new1 = c1.split(0, t[0]);
+        // // let new2 = offset[iKdx].split(t[1], 1);
+        // // //console.log("offset join news :",iIdx,iKdx,new1,new2);
+        // // offset.splice(iIdx, iKdx + 1 - iIdx, new1, new2);
+        // // //iIdx++
+        // // break;
+        // // }
+        // // }
+        // }
+        // return new PolyBezier(offset);
     }
+    //offset(d, jtype)
+    //{
+    //    console
+    //    const offset = [];
+    //    // Generate the offsets.  Note
+    //    this.curves.forEach(function (v)
+    //    {
+    //        offset.push(...v.offset(d)); //Equivalent to offset = offset.concat(segOffsets);
+    //        // if(!v._linear)
+    //        // {
+    //        // let segOffsets = v.offset(d);
+    //        // for(let iIdxToken = 0; iIdxToken < segOffsets.length; iIdxToken++)
+    //        // {
+    //        // offset.push(segOffsets[iIdxToken]);
+    //        // if (PolyBezier.debugObj != null) {
+    //        // DrawUtils.displayPoint(segOffsets[iIdxToken].points[0], 0.05, PolyBezier.debugObj, '#ff0000');
+    //        // DrawUtils.displayPoint(segOffsets[iIdxToken].points[1], 0.01, PolyBezier.debugObj, '#00ff00');
+    //        // DrawUtils.displayPoint(segOffsets[iIdxToken].points[2], 0.01, PolyBezier.debugObj, '#00ff00');
+    //        // DrawUtils.displayPoint(segOffsets[iIdxToken].points[3], 0.05, PolyBezier.debugObj, '#0000ff');
+    //        // }
+
+    //        // }
+    //        // }
+    //    });
+    //    //console.log('offset', offset);
+    //    // let adjT = [];
+    //    // offset.forEach(function(){adjT.push([0,1])});
+    //    let len = offset.length;
+    //    for (let iIdx = len - 1; iIdx >= 0; iIdx--)
+    //    {
+    //        if (offset[iIdx].length() >= d / 40) continue;
+    //        offset.splice(iIdx, 1);
+    //    }
+    //    let offsets = new PolyBezier(offset);
+    //    // console.log('offsets cw', offsets.cw);
+    //    //NOTE turns out joins must come first. The joins themselves could be part of the
+    //    //overlaps detected by intersections.
+    //    offsets.join(d, jtype);
+    //    //console.log('offsets', offsets);
+    //    let arrSelfies = offsets.self_intersections(Math.abs(d / 50));
+    //    //console.log('arrSelfies', arrSelfies);
+    //    let selfies = arrSelfies[0];
+    //    if (selfies.length == 0)
+    //    {
+    //        return [offsets];
+    //        // return [offsets, arrSelfies[0]];
+    //    }
+    //    if (selfies.length == 1)
+    //    {
+    //        let newLoop = [];
+    //        //Take the long way round
+    //        let thisI = selfies[0];
+    //        let branch = 0;
+    //        if (thisI.idx[0] < thisI.idx[1]) branch = 1;
+    //        let curveIdx = thisI.idx[branch];
+    //        newLoop.push(offsets.curves[curveIdx++].split(thisI.t[branch], 1));
+    //        while (curveIdx != thisI.idx[branch ^ 1])
+    //        {
+    //            if (curveIdx >= offsets.curves.length) curveIdx = 0;
+    //            newLoop.push(new Bezier(offsets.curves[curveIdx++]));
+    //        }
+    //        newLoop.push(offsets.curves[curveIdx++].split(0, thisI.t[branch ^ 1]));
+    //        return [new PolyBezier(newLoop)];
+    //        // return [[new PolyBezier(newLoop)], arrSelfies[0]];
+    //    }
+    //    //This way of making sorted lists does not work for these intersections. The problem is that
+    //    //for these intersection there is one poly and the idx element for the next intersection
+    //    //could be either branch. To make matters worse each intersection does not have a relationship
+    //    //with the next that is meaningful for our purposes. One answer is to "sort" each intersection
+    //    //selfies = this.makeSortedLists(selfies);
+    //    //let header = selfies.pop();
+    //    ///let idx0 = header.next[0];
+    //    // console.log('selfies before', selfies);
+    //    //The 0 side follows the path, we now need the 1 side to follow the branches
+    //    //Following the path is not enough. We should show the adjacent intersections
+    //    /*
+    //    * As one gets a better understanding, things can suddenly become clear. It is convenient to
+    //    * view the shape as a real line where we start at 0 and go to 1 with real number on curve 0.
+    //    * At curve 1 we go from 1.0 to 2, etc. Every intersection exists at two of these real numbers.
+    //    * One enters the intersection on one of the curves leading up to one of the values.  There are
+    //    * two paths in. There are two paths out leaving starting at one of the points on the intersection.
+    //    * Which point is represented by the 0 and 1 indexes. so idx[0] + t[0] is one point and idx[1] + t[1]
+    //    * the other point. The next intersection is the one with the next higher value, it could be either
+    //    * point. It doesn't matter.  It is possible that the next point is the opposite point in the same
+    //    * intersection.
+    //    */
+    //    let debugI = false;
+    //    for (let iIdx = 0; iIdx < selfies.length; iIdx++)
+    //    {
+    //        let thisI = selfies[iIdx];
+    //        if (selfies.length == 1)
+    //        {
+    //            thisI.prev = [0, 0];
+    //            thisI.next = [0, 0];
+    //            continue;
+    //        }
+    //        // console.log('thisI', thisI);
+    //        //We enter the intersection on the curve on the 0 index and leave to the next
+    //        //intersection on the 1 curve.  The branch is on the upper side of the 0 curve
+    //        let path0Start = thisI.realIdx[0];
+    //        let path1Start = thisI.realIdx[1];
+    //        if (debugI)
+    //        {
+    //            console.log('');
+    //            console.log('iIdxToken path0Start path1Start', iIdx, path0Start, path1Start);
+    //        }
+    //        //If we go through the loop and a field is still -1, we have a wraparound
+    //        thisI.prev = [-1, -1];
+    //        thisI.next = [-1, -1];
+    //        thisI.nextVal = [-1, -1];
+    //        thisI.prevVal = [-1, -1];
+    //        //Now we know where the present intersection is along the path. We search for
+    //        //the next and previous intersection on each branch. Wraparound is tricky
+    //        for (let iJdx = 0; iJdx < selfies.length; iJdx++)
+    //        {
+    //            // if(iJdx == iIdxToken)continue; //We will find short loops later
+    //            //We will include the possiblity of a loop
+    //            //if(iJdx == iIdxToken)continue;
+    //            let possibleI = selfies[iJdx];
+    //            let poss0 = possibleI.realIdx[0];
+    //            let poss1 = possibleI.realIdx[1];
+    //            //This intersection crosses at the two points above, the possible next is the closest
+    //            //higher
+    //            if (debugI) console.log('iJdx possible0Idx possible1Idx', iJdx, poss0, poss1);
+    //            if (poss0 > path0Start && iIdx != iJdx)
+    //            {
+    //                //This intersection is after the being tested
+    //                if (thisI.next[0] < 0)
+    //                {
+    //                    //This is the first one found
+    //                    thisI.next[0] = iJdx;
+    //                    thisI.nextVal[0] = poss0;
+    //                    if (debugI) console.log('1st next[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Is this intersection closer than the one we have now?
+    //                    if (poss0 < thisI.nextVal[0])
+    //                    {
+    //                        thisI.next[0] = iJdx;
+    //                        thisI.nextVal[0] = poss0;
+    //                        if (debugI) console.log('Better next[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            if (poss1 > path0Start)
+    //            {
+    //                if (thisI.next[0] < 0)
+    //                {
+    //                    thisI.next[0] = iJdx;
+    //                    thisI.nextVal[0] = poss1;
+    //                    if (debugI) console.log('1st next[0] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Do we have a better match
+    //                    if (poss1 < thisI.nextVal[0])
+    //                    {
+    //                        thisI.next[0] = iJdx;
+    //                        thisI.nextVal[0] = poss1;
+    //                        if (debugI) console.log('Better next[0] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            if (poss0 > path1Start)
+    //            {
+    //                // if(thisI.next[1] < 0)thisI.next[1] = iJdx;
+    //                if (thisI.next[1] < 0)
+    //                {
+    //                    thisI.next[1] = iJdx;
+    //                    thisI.nextVal[1] = poss0;
+    //                    if (debugI) console.log('1st next[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Do we have a better match
+    //                    if (poss0 < thisI.nextVal[1])
+    //                    {
+    //                        thisI.next[1] = iJdx;
+    //                        thisI.nextVal[1] = poss0;
+    //                        if (debugI) console.log('Better next[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            if (poss1 > path1Start && iIdx != iJdx)
+    //            {
+    //                // if(thisI.next[1] < 0)thisI.next[1] = iJdx;
+    //                if (thisI.next[1] < 0)
+    //                {
+    //                    thisI.next[1] = iJdx;
+    //                    thisI.nextVal[1] = poss1;
+    //                    if (debugI) console.log('1st next[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Do we have a better match
+    //                    if (poss1 < thisI.nextVal[1])
+    //                    {
+    //                        thisI.next[1] = iJdx;
+    //                        thisI.nextVal[1] = poss1;
+    //                        if (debugI) console.log('Better next[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            // if(poss0  < path0Start)
+    //            // {
+    //            // if(thisI.prev[0] < 0)
+    //            // {
+    //            // thisI.prev[0] = iJdx;
+    //            // }else
+    //            // {
+    //            // //Do we have a better match
+    //            // if(poss0 > selfies[thisI.prev[0]].idx[0] + selfies[thisI.prev[0]].t[0])
+    //            // {
+    //            // thisI.prev[0] = iJdx;
+    //            // }
+    //            // }
+    //            // }
+    //            // if(poss1  < path1Start)
+    //            // {
+    //            // // if(thisI.prev[1] < 0)thisI.prev[1] = iJdx;
+    //            // if(thisI.prev[1] < 0)
+    //            // {
+    //            // thisI.prev[1] = iJdx;
+    //            // }else
+    //            // {
+    //            // //Do we have a better match
+    //            // if(poss1 > selfies[thisI.prev[1]].idx[1] + selfies[thisI.prev[1]].t[1])
+    //            // {
+    //            // thisI.prev[1] = iJdx;
+    //            // }
+    //            // }
+    //            // }
+    //            if (poss0 < path0Start && iIdx != iJdx)
+    //            {
+    //                //This intersection is after the being tested
+    //                if (thisI.prev[0] < 0)
+    //                {
+    //                    //This is the first one found
+    //                    thisI.prev[0] = iJdx;
+    //                    thisI.prevVal[0] = poss0;
+    //                    if (debugI) console.log('1st prev[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Is this intersection closer than the one we have now?
+    //                    if (poss0 > thisI.prevVal[0])
+    //                    {
+    //                        thisI.prev[0] = iJdx;
+    //                        thisI.prevVal[0] = poss0;
+    //                        if (debugI) console.log('Better prev[0] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            if (poss1 < path0Start)
+    //            {
+    //                if (thisI.prev[0] < 0)
+    //                {
+    //                    thisI.prev[0] = iJdx;
+    //                    thisI.prevVal[0] = poss1;
+    //                    if (debugI) console.log('1st prev[0] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Do we have a better match
+    //                    if (poss1 > thisI.prevVal[0])
+    //                    {
+    //                        thisI.prev[0] = iJdx;
+    //                        thisI.prevVal[0] = poss1;
+    //                        if (debugI) console.log('Better prev 0 poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            if (poss0 < path1Start)
+    //            {
+    //                // if(thisI.prev[1] < 0)thisI.prev[1] = iJdx;
+    //                if (thisI.prev[1] < 0)
+    //                {
+    //                    thisI.prev[1] = iJdx;
+    //                    thisI.prevVal[1] = poss0;
+    //                    if (debugI) console.log('1st prev[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Do we have a better match
+    //                    if (poss0 > thisI.prevVal[1])
+    //                    {
+    //                        thisI.prev[1] = iJdx;
+    //                        thisI.prevVal[1] = poss0;
+    //                        if (debugI) console.log('Better prev[1] poss0 iIdxToken iJdx', poss0, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            if (poss1 < path1Start && iIdx != iJdx)
+    //            {
+    //                // if(thisI.prev[1] < 0)thisI.prev[1] = iJdx;
+    //                if (thisI.prev[1] < 0)
+    //                {
+    //                    thisI.prev[1] = iJdx;
+    //                    thisI.prevVal[1] = poss1;
+    //                    if (debugI) console.log('1st prev[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                } else
+    //                {
+    //                    //Do we have a better match
+    //                    if (poss1 > thisI.prevVal[1])
+    //                    {
+    //                        thisI.prev[1] = iJdx;
+    //                        thisI.prevVal[1] = poss1;
+    //                        if (debugI) console.log('Better prev[1] poss1 iIdxToken iJdx', poss1, iIdx, iJdx);
+    //                    }
+    //                }
+    //            }
+    //            // if((possibleI.idx[0] + possibleI.t[0])  < (path0Idx + path0T))
+    //            // {
+    //            // if(thisI.prev[0] < 0)thisI.prev[0] = selfies.length - 1 - iJdx;
+    //            // }
+    //            // if((possibleI.idx[1] + possibleI.t[1])  < (path1Idx + path1T))
+    //            // {
+    //            // if(thisI.prev[1] < 0)thisI.prev[1] = selfies.length - 1 - iJdx;
+    //            // }
+    //            // console.log('possibleI', possibleI);
+    //            //Look for next on 0 branch
+    //        }
+    //        // if(thisI.next[0] < 0)
+    //        // {
+    //        // thisI.next[0] = 0;
+    //        // }else
+    //        // {
+    //        // //Check for short loop
+    //        // let next0 = selfies[thisI.next[0]];
+    //        // if((next0.idx[1] + next0.t[1]) > (path1Idx + path1T))
+    //        // {
+    //        // thisI.next[0] = iIdxToken;
+    //        // }
+    //        // }
+    //        if (thisI.next[1] < 0)
+    //        {
+    //            thisI.next[1] = 0;
+    //        }
+    //        if (thisI.prev[0] < 0)
+    //        {
+    //            thisI.prev[0] = selfies.length - 1;
+    //        }
+    //        // if(thisI.prev[1] < 0)
+    //        // {
+    //        // thisI.prev[1] = selfies.length - 1;
+    //        // if((iIdxToken == 0) && (thisI.next[0] == 0))
+    //        // {
+    //        // thisI.prev[1] = 0;
+    //        // }
+    //        // }else
+    //        // {
+    //        // let prev1 = selfies[thisI.prev[1]];
+    //        // if((prev1.idx[0] + prev1.t[0]) < (path0Idx + path0T))
+    //        // {
+    //        // thisI.prev[1] = iIdxToken;
+    //        // }
+    //        // }
+    //    }
+    //    selfies.at(-1).next[1] = 0;
+    //    let loops = [];
+    //    //Get on the right path
+    //    // let curveIdx = selfies[idx0].idx[0];
+    //    // let nextT = 1;
+    //    // if(selfies[selfies[idx0].next[0]].idx[0] == curveIdx)nextT = selfies[selfies[idx0].next[0]].t[0];
+    //    // let midPt = offsets.curves[curveIdx].get((selfies[idx0].t[0] + nextT)/2);
+    //    // //This is wrong we are looking for the distance from the
+    //    // let proj = offsets.curves[selfies[idx0].idx[1]].project(midPt);
+    //    // console.log('proj midPt', proj, midPt);
+    //    // let startBranch = 0;
+    //    //if(proj.d < d)startBranch = 1; //midpt on curve 0 is inside offset distance
+    //    offsets.findLoops(selfies, 0, 1, 0, loops);
+    //    // console.log('loops', loops);
+    //    // console.log('selfies after', selfies);
+    //    let selectArr = 1;
+    //    if (PolyBezier.debugObj != null)
+    //    {
+    //        for (let iIdx = 0; iIdx < arrSelfies[selectArr].length; iIdx++)
+    //        {
+    //            let thisi = arrSelfies[selectArr][iIdx];
+    //            DrawUtils.displayPoint(offsets.curves[thisi.idx[0]].get(thisi.t[0]), 0.02, PolyBezier.debugObj, '#0f0f00');
+    //        }
+    //    }
+    //    return loops;
+    //    // return [loops, arrSelfies[selectArr]];
+    //    // return [[offsets], arrSelfies[selectArr]];
+
+    //}
 
     /*
     * This will join the endpoints of all adjacent curves
@@ -1565,6 +1923,45 @@ export class PolyBezier
      * If the closest distance is to and endpoint for example, it could be at any angle
      * relative to the curve. Our cross product test can give the wrong result in those cases.
      */
+    //contains(p, tol = 0.01)
+    //{
+    //    let bbox = this.bbox();
+    //    if (p.x < bbox.x.min || p.x > bbox.x.max || p.y < bbox.y.min || p.y > bbox.y.max)
+    //    {
+    //        return false;
+    //    }
+
+    //    let windingNumber = 0;
+
+    //    for (let i = 0; i < this.curves.length; i++)
+    //    {
+    //        let curve = this.curves[i];
+    //        let intersections = curve.lineIntersects({ p1: p, p2: { x: bbox.x.max + 1, y: p.y } });
+    //        console.log('intersections', intersections);
+    //        for (let j = 0; j < intersections.length; j++)
+    //        {
+    //            let t = intersections[j];
+    //            let pt = curve.get(t);
+
+    //            if (Math.abs(pt.y - p.y) < tol)
+    //            {
+    //                // Handle the case where the intersection is very close to the point
+    //                continue;
+    //            }
+
+    //            if (pt.y > p.y)
+    //            {
+    //                windingNumber += 1;
+    //            } else
+    //            {
+    //                windingNumber -= 1;
+    //            }
+    //        }
+    //    }
+
+    //    return windingNumber !== 0;
+    //}
+
     contains(p, tol = 0.01)
     {
 
@@ -1593,27 +1990,35 @@ export class PolyBezier
 
             //We are inside the bounding box
             let proj = thisCurve.project(p);
-            if (proj.d > tol) continue;
+            //Let us change the logic here. If the point closer to the curve than the tolerance
+            //it is on the curve. We will return true. If the point is not on the curve, we will
+            //continue with the logic below if the point is closer then 5*tol
+            if (proj.d < tol)
+            {
+                return true;
+            }
+            if (proj.d > 5*tol) continue;
+
             let der = thisCurve.derivative(proj.t);
             let ang = Math.abs(utils.angle(proj, { x: proj.x + der.x, y: proj.y + der.y }, p));
             // console.log('ang', ang);
             //It is possible that the closest point is past the end of the curve and is on the wrong side
             //giving a bad result. Constraining the angle from the projection to closer to the expected
-            //perpendicular will give better results
-            if (ang < Math.PI / 4) continue;
-            if (ang > 3 * Math.PI / 4) continue;
-            // if(Area.debugObj != null)
-            // {
-            // DrawUtils.displayPoint(proj, 0.002, Area.debugObj, '#77ff00');
-            // DrawUtils.displayShape([utils.makeline(proj, p)], Area.debugObj, '#222222');
-            // DrawUtils.displayShape([utils.makeline(proj, {x:proj.x+der.x, y:proj.y+der.y})], Area.debugObj, '#222222');
-            // }
-
-            if (min.i < 0 || min.d > proj.d)
+            //perpendicular will give better results. The logic below does not appear to be what was intended
+            //It should be that only angles near +/- PI/2 are considered. The logic below is not correct.
+            //We are going to change the logic to only consider angles near PI/2
+            if ((Math.abs(ang - Math.PI / 2) < Math.PI / 10) || (Math.abs(ang - 3 * Math.PI / 2) < Math.PI / 10))
             {
-                min = { x: proj.x, y: proj.y, i: iIdx, t: proj.t, d: proj.d };
+                if (min.i < 0 || min.d > proj.d)
+                {
+                    min = { x: proj.x, y: proj.y, i: iIdx, t: proj.t, d: proj.d };
+                }
             }
         }
+        //We did this to avoid the intersection test. If we are close to the curve.The intersections
+        //can have irregular counts at close distances.  We have found the point is closest to a curve
+        //and closer than 5*tol. We will use the curve to determine if the point is inside or outside
+        //the curve based on direction of the curve and the point.
         if (min.i >= 0)
         {
             //We are within tolerance which side are we on
@@ -1657,7 +2062,11 @@ export class PolyBezier
         }
         //These are lines in different directions that start on the test point
         //and end outside the bounding box. We test for how many times a line
-        //intersects the shape.
+        //intersects the shape. We have 8 directions to test. It is highly unlikely
+        //that our edge case will be in all 8 directions. We can test for curves that are coincident
+        //to our test line. We will skip that test if we find a coincident line.  If we get 3 votes
+        //more than the other case (in or out) we will truncate the tests return the results of the 3 votes.
+        //If we go through all 8 tests, a simple majority will determine the result.
         let vote = [0, 0];
         let lines = [{
             p1: p,
@@ -1824,13 +2233,12 @@ export class PolyBezier
         for (let iIdx = 0; iIdx < this.curves.length; iIdx++)
         {
             let c1 = this.curves[iIdx];
-            // console.log('c1', new Bezier(c1));
+            //console.log('c1', new Bezier(c1));
             for (let iJdx = iIdx + 1; iJdx < this.curves.length; iJdx++)
             {
                 let c2 = this.curves[iJdx];
                 // console.log('c2', new Bezier(c2));
                 let results = c1.intersects(c2, tol, true);
-                // console.log('iIdxToken iJdx results', iIdxToken, iJdx, results);
                 for (let iKdx = 0; iKdx < results.length; iKdx++)
                 {
                     let t = results[iKdx].split("/").map(v => parseFloat(v));
@@ -2884,6 +3292,79 @@ export class PolyBezier
         return relation;
     }
 
+
+    /**
+     * Converts the PolyBezier to an SVG path data string with smart handling
+     * for closed loops and disjoint sections.
+     * @returns {string} SVG path data string.
+     */
+    toSVG()
+    {
+        if (!Array.isArray(this.curves) || this.curves.length === 0)
+        {
+            return '';
+        }
+
+        let svgPath = '';
+        let previousEnd = null;
+        let currentStart = null;
+
+        this.curves.forEach((bezier, index) =>
+        {
+            const points = bezier.points;
+            const order = points.length;
+            const startPoint = points[0];
+            const endPoint = points[order - 1];
+
+            // Determine if a new subpath should start
+            if (
+                !currentStart ||
+                !previousEnd ||
+                utils.dist(startPoint, previousEnd) > 0.01
+                
+            )
+            {
+                svgPath += `M ${startPoint.x} ${startPoint.y} `;
+                currentStart = startPoint;
+            }
+
+            // Choose the appropriate SVG command based on the order
+            let command = '';
+            if (order === 2)
+            {
+                command = 'L';
+            } else if (order === 3)
+            {
+                const controlPoint = points[1];
+                command = `Q ${controlPoint.x} ${controlPoint.y} `;
+            } else if (order === 4)
+            {
+                const controlPoint1 = points[1];
+                const controlPoint2 = points[2];
+                command = `C ${controlPoint1.x} ${controlPoint1.y}, ${controlPoint2.x} ${controlPoint2.y} `;
+            } else
+            {
+                throw new Error(`Unsupported Bezier order: ${order}`);
+            }
+
+            svgPath += `${command}${endPoint.x} ${endPoint.y} `;
+
+            // Check if the path should be closed
+            if (utils.dist(startPoint, endPoint) < 0.01)
+            //if (currentStart.x === endPoint.x && currentStart.y === endPoint.y)
+            {
+                svgPath += 'Z ';
+                currentStart = null;
+            }
+
+            previousEnd = endPoint;
+        });
+
+        return svgPath.trim();
+    }
 }
+export default PolyBezier
+export { PolyBezier }
+
 //    return PolyBezier;
 //})();

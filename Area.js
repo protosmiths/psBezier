@@ -6,7 +6,7 @@
 * Actually, I have a use case and another level of objects and related methods that would better determine
 * what I desire in defining how two curves and ultimately two shapes interact. I have an application where 
 * I am cutting panels to cover windows.  I have a collection of windows of various sizes and 4' x 8' panels.  
-* I what to virtually cut the panels to cover the windows. Part the process is to take the panel and line it 
+* I want to virtually cut the panels to cover the windows. Part the process is to take the panel and line it 
 * up with the window. To cut from the panel one would do an intersection with the uncovered area on the window 
 * and the panel. The panel could be a partial panel that has already had pieces used for other windows. 
 * The window could also be partially covered.  The core object I am looking at is an area object. The area is 
@@ -75,6 +75,15 @@
 * is a problem it is one of these close tangent issues. One way to fix it might be to validate by pairing up crossing 
 * intersections. One could "fix" a close tangent problem by finding the intersection it should pair with.
 *
+* I had an epiphany. All loops are equal when we are doing area operations.  We can start at any loop and follow the rules. We can
+* loops as pairs. Take the result from that with the next loop.  We can do this until we have processed all the loops.  We can start
+* at the first loop and follow the rules.  We can then take the result and follow the rules with the next loop.  We can do this until
+* we have processed all the loops.  There are several advantages to this.  We can do the processing for the pair including the
+* intersection.  We can then move to the next pair.  We can also handle the case where we have a loop inside another loop.  We can
+* handle the case where we have a loop that contains another loop.  We can handle the case where we have a loop that is disjoint
+* from another loop.  We can handle the case where we have a loop that is coincidental with another loop. One tricky case is where
+* the result is multiple loops. We need to process all the loops until there are no intersections, overlaps or encompassed loops with
+* the same direction.  We can then create a new area object from the loops.  We can then process the new area object.
 */
 
 /*
@@ -82,76 +91,328 @@
 * export the Area class so that it can be imported into another file.  I would like to export the Path class so that it can
 * be imported into another file.  I would like to export the Segment class so that it can be imported into another file.
 */
-import { Path } from "./Path.js";
-import { Segment } from "./Segment.js";
-export { Area, Path, Segment };
+
+/**
+ * Represents an Area composed of one or more Paths.
+ * Supports SVG input, arrays of Paths, or cloning from another Area.
+ * Facilitates Boolean operations (e.g., union, intersection) and manages Path traversal.
+ */
+import PathArea from './path-area.js';
+
 class Area
 {
-    constructor(paths = [])
+    /**
+     * Initializes the Area object.
+     * @param {string|Array|PathArea|Area} source - Can be an SVG string, an array of Paths, or another Area object.
+     */
+    constructor(source)
     {
-        this.paths = paths; // Array of Path objects
+        //This is a Path object. It is a collection of closed loops.  The loops are defined by a series of bezier segments.
+        this.path = null;
+
+        if (typeof source === 'string')
+        {
+            // Parse SVG and create Paths
+            this.path = this.path = new PathArea(source);
+        } else if ((Array.isArray(source)) && (source[0] instanceof Bezier))
+        {
+            //We have an array of beziers
+            this.path = new PathArea(source);
+        } else if (source instanceof PathArea)
+        {
+            // Clone a Path
+            this.path = new PathArea(source);
+        } else if (source instanceof Area)
+        {
+            // Clone another Area
+            this.path = new PathArea(source.path);
+        } else
+        {
+            throw new Error('Invalid source type for Area constructor.');
+        }
     }
 
-    add(otherArea)
-    {
-        const intersections = this.findIntersections(otherArea);
-        return this.resolveOperation(intersections, "add");
-    }
+    /*
+    * We are changing the way we handle the area operations.  We are going to create an array of loops to be processed.
+    * We will process the loops in pairs.  We will process the first pair aand remove them from the array. Then we will
+    * take the result and process it with the next loop in the array.  We will continue this until we have processed all
+    * the loops.  We will then create return a new Area object from the loops. Things get tricky when we have multiple
+    * loops in the result.  We need to process all the loops until there are no intersections, overlaps or encompassed
+    * loops with the same direction.  We can then create and return a new area object from the loops.
+    * 
+    * This function is called from the union and intersect functions.  It is called with the other path and the exit code.
+    * It manages the processing of the loops in the two paths.  It returns a new Area object with the result of the operation.
+    * 
+    * The PathArea object is still at the core of the Area object. The PathArea object can take an array of beziers and
+    * create a PathArea object.  That will identify the loops in the PathArea object.  The walkPath function will process
+    * two loops and returnthe result as an arry of beziers.  The PathArea object can take the array of beziers and create
+    * a new PathArea object.  That PathArea object will have the loops identified.  If there is only one loop in the PathArea
+    * we get the next loop in the array and process it with the result.  We continue this until we have processed all the loops.
+    * However if there are multiple loops in the result we need to push all but one back into the array.  We then process the
+    * 
+    */
 
-    subtract(otherArea)
+
+    /**
+     * Performs a union operation on the Area.
+     * Combines all Paths in this Area with the Paths in another Area.
+     * @param {Area} otherArea - The Area to union with.
+     * @returns {Area} A new Area representing the union.
+     */
+    union(otherArea)
     {
-        otherArea.paths.forEach(path => path.reverseDirection());
-        return this.add(otherArea);
+        this.path.findIntersections(otherArea.path);
+        //Need to handle case where we have no intersections. Loops that are inside get swallowed up.
+        //The walkPath method does not handle this case. It is easier to handle it here.
+        // Note that our goal is to create a new Area object. We are not modifying the current Area object.
+        // or the otherArea object. First, loops that stand alone are added to the result. Then we deal with loops
+        // that are inside other loops or contain other loops.  Things get a little tricky here because of direction.
+        // We should work in pairs. Two loops going the same direction become the outside loop. Two loops going in
+        // the opposite direction are cloned and added to the result. Note the result at this point is an array of
+        //beziers. At the end we will create a new Area object from the array of beziers.
+        //if (this.path.intersections.length === 0)
+        //{
+        //    let resultSegments = [];
+        //    let currentPath = this.path.segments[0];
+        //    let front = true;
+        //    while (currentPath)
+        //    {
+        //        let nextPath = currentPath.next;
+        //        let startT = front ? 0 : 1;
+        //        let endT = nextPath ? (front ? 0 : 1) : 1;
+        //        resultSegments.push(...currentPath.split(startT, endT));
+        //        currentPath = nextPath;
+        //        front = !front;
+        //    }
+        //    return new Area(resultSegments);
+        //}
+
+        return this.walkPath(otherArea.path, -1);
     }
 
     intersect(otherArea)
     {
-        const intersections = this.findIntersections(otherArea);
-        return this.resolveOperation(intersections, "intersect");
+        this.path.findIntersections(otherArea.path);
+        return this.walkPath(otherArea.path, 1);
     }
 
-    findIntersections(otherArea)
+    subtract(otherArea)
     {
-        const intersections = [];
-        this.paths.forEach(path1 =>
+        otherArea.reverse();
+        return this.union(otherArea);
+    }
+
+    isEmpty()
+    {
+        return this.beziers.length === 0;
+    }
+    /**
+     * Walks a Path to construct a union/intersect Path based on exit codes.
+     * @param {PathArea} path - The other peth for the walk operation.
+     * @param {number} exitCode - The exit code to use for the walk operation. (-1 for union, 1 for intersect)
+     * @returns {PathArea} A new Path representing the union/intersect operation.
+     */
+    walkPath(otherPath, exitCode)
+    {
+        let resultSegments = [];
+        let currentIntersection = this.path.intersections[0];
+        let front = true;
+
+        //We should handle the case where we have 1 or 0 intersections. For 1 intersection we have a simple case.
+        //One of the two paths will the the path depending on the exit code and the loop direction.  It gets even more
+        //complicated. There can be multiple loops in both paths. The logic we have discussed so far is for the case
+        //where we have one loop in each path. And we have not really covered all of the cases for the different
+        //directions of the loops.  We need to handle the case where we have multiple loops in each path. I think we
+        //can determine the logic for the case where we have one loop in each path.  We can then extend that logic to
+        //the case where we have multiple loops in each path.  Now we need to recognize the intersections between loops
+        //The reality is that that is what counts.  We need to recognize the intersections between loops.
+        if (this.path.intersections.length === 1)
         {
-            otherArea.paths.forEach(path2 =>
+            if (currentIntersection.path1.exit_code === exitCode)
             {
-                intersections.push(...path1.findIntersections(path2));
-            });
-        });
-        return intersections;
-    }
-
-    resolveOperation(intersections, operation)
-    {
-        const visitedSegments = new Set();
-        const resultLoops = [];
-
-        while (true)
-        {
-            const unvisitedSegment = this.findUnvisitedSegment(visitedSegments);
-            if (!unvisitedSegment) break;
-
-            const loop = unvisitedSegment.path.traverse(unvisitedSegment.segment, intersections, operation);
-            resultLoops.push(loop);
+                return new Area(this.path);
+            }
+            return new Area(otherPath);
         }
+        //We have 0 intersections. There are three possibilities. The two paths are disjoint. This path is inside the otherPath.
+        //Or the otherPath is inside this path. We can handle the last two cases and the third case would what is left.
+        //Now what about exit codes and directions of paths.
+        let thatLoop = otherPath.getLoopInfo(currentIntersection.path2.entry_t);
+        let pathInside = otherPath.loops[thatLoop.loopIndex].PolyBezier.contains(this.path.getPoint(currentIntersection.path1.start_t));
+        if (pathInside) return new Area(this.path);
 
-        return new Area(resultLoops);
+        let thisLoop = this.path.getLoopInfo(currentIntersection.path1.start_t);
+        let otherInside = this.path.loops[thisLoop.loopIndex].PolyBezier.contains(otherPath.getPoint(currentIntersection.path2.entry_t));
+        if (otherInside) return new Area(otherPath);
+
+        //Disjoint paths. Return the two paths for union and an empty path for intersection.
+        //Implied else
+        if (exitCode === 1) return new Area();
+
+        //Concatenate the beziers in the two paths.
+        let thisBeziers = this.path.beziers.concat(otherPath.beziers);
+        return new Area(thisBeziers);
+
+        while (currentIntersection)
+        {
+            //console.log('currentIntersection', currentIntersection);
+            if (currentIntersection.isProcessed())
+            {
+                //We have finished a processing loop
+                //We have an issue to handle here. If the first intersection was an overlap, we may have processed all the intersections
+                //but we started at the other end of the overlap. We have come around to the other end of the overlap and we have processed
+                //all the intersections. We need to take the overlap and finish the loop by going to the other end.
+                let testIdx = 0;
+                while (testIdx < this.path.intersections.length)
+                {
+                    currentIntersection = this.path.intersections[testIdx];
+                    if (!currentIntersection.isProcessed()) break;
+                    testIdx++;
+                }
+                if (testIdx === this.path.intersections.length)
+                {
+                    currentIntersection = null;
+                    break;
+                }
+            }
+            if (currentIntersection == null) break;
+            let nextIntersection = null;
+            let bounds = null;
+            // Determine the Path and direction to follow based on exit codes
+            if (currentIntersection.path1.exit_code === exitCode)
+            {
+                //We are taking path1
+                //console.log('Taking path1');
+                nextIntersection = currentIntersection.path1.next;
+                bounds = this.getPathBounds(currentIntersection, nextIntersection, 0, front);
+                //Path 1 always goes to the front of the intersection/overlap
+                front = true;
+                resultSegments.push(...this.path.split(bounds.startT, bounds.endT));
+           } else
+            {
+                //Taking path 2
+                //console.log('Taking path2');
+                nextIntersection = currentIntersection.path2.next;
+                bounds = this.getPathBounds(currentIntersection, nextIntersection, 1, front);
+                //Path 2 goes to the front if it is the same direction as path 1
+                front = nextIntersection.sameDirection;
+                resultSegments.push(...otherPath.split(bounds.startT, bounds.endT));
+            }
+            currentIntersection.markProcessed();
+            // Move to the next intersection
+            currentIntersection = nextIntersection;
+        }
+        console.log('resultSegments', resultSegments);
+        return new Area(resultSegments);
     }
 
-    findUnvisitedSegment(visitedSegments)
+    // This gives us the bounds of the path between two intersections or overlaps (current and next)
+    // pathIndex is 0 for path1 and 1 for path2
+    // front is true if the path is at the front of the intersection/overlap
+    //The reason for front is that path2. We always go to the entry point of the intersection/overlap because we won't know
+    //the exit until the next decision point. We might exit without tranversing the entire intersection/overlap.
+    //When path2 is going the other direction from path1, the entry point is the end of the intersection/overlap.
+    getPathBounds(currentIntersection, nextIntersection, pathIndex, front)
     {
-        for (const path of this.paths)
+        if (pathIndex === 0)
         {
-            for (const segment of path.segments)
+            return {
+                startT: front ? currentIntersection.path1.start_t : currentIntersection.path1.end_t,
+                endT: nextIntersection.path1.start_t
+            };
+        } else
+        {
+            return {
+                startT: front ? currentIntersection.path2.start_t : currentIntersection.path2.end_t,
+                endT: nextIntersection.path2.entry_t
+            };
+        }
+    }
+
+    toSVG()
+    {
+        return this.path.toSVG();
+    }
+
+    /**
+     * Creates a clone of the Area.
+     * @returns {Area} A new Area object identical to the current one.
+     */
+    clone()
+    {
+        return new Area(this);
+    }
+
+    reverse()
+    {
+        this.path.reverse();
+    }
+
+    /**
+     * Additional helper methods as needed.
+     */
+    /*
+    * A handy debug function would be to display some Area. This could done by passing in an array of Areas to display.
+    * The paths could be displayed in different colors.  One could also pass a display context to the function.  The function
+    * would then draw the paths on the display context. 
+    * 
+    * One could take the paths and find the bounding box of the paths.  This could be used to scale the paths to fit in a
+    * display area.  The paths could be scaled and translated to fit in the display area.  
+    */
+    static displayAreas(displayContext, areas)
+    {
+        let colors = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'black'];
+        if (areas.length === 0) return;
+        let bounds = utils.findbbox(areas[0].path.beziers);
+        for (let i = 1; i < areas.length; i++)
+        {
+            utils.expandbox(bounds, utils.findbbox(areas[i].path.beziers));
+        }
+        //console.log(bounds);
+        let hscale = (displayContext.canvas.width - 10) / bounds.x.size;
+        let vscale = (displayContext.canvas.height - 10) / bounds.y.size;
+        //console.log(hscale, vscale);
+        let scale = (vscale < hscale) ? vscale : hscale;
+        displayContext.clearRect(0, 0, displayContext.canvas.width, displayContext.canvas.height);
+        displayContext.save();
+        //Standard display transfomation moves the center of the bounding box to 0,0
+        //Then scales the bounding box to fit in the display area
+        //Then translate the display area to the center of the display area
+        displayContext.translate(displayContext.canvas.width / 2, displayContext.canvas.height / 2);
+        displayContext.scale(scale, -scale);
+        displayContext.translate(-bounds.x.mid, -bounds.y.mid);
+        for (let i = 0; i < areas.length; i++)
+        {
+            let color = colors[i % colors.length];
+            displayContext.strokeStyle = color;
+            let svgPath = areas[i].toSVG();
+            let path = new Path2D(svgPath);
+            //Draw the path
+            displayContext.stroke(path);
+            //Draw the detected intersections and midpoints
+            let intersections = areas[i].path.intersections;
+            //Some area paths may not have intersections
+            //intersections can be undefined or null
+            if (intersections)
             {
-                if (!visitedSegments.has(segment))
+                for (let j = 0; j < intersections.length; j++)
                 {
-                    return { path, segment };
+                    let intersection = intersections[j];
+                    displayContext.beginPath();
+                    displayContext.arc(intersection.path1.midPoint.x, intersection.path1.midPoint.y, 3, 0, 2 * Math.PI);
+                    displayContext.fillStyle = color;
+                    displayContext.fill();
+                    displayContext.beginPath();
+                    displayContext.arc(intersection.path2.midPoint.x, intersection.path2.midPoint.y, 3, 0, 2 * Math.PI);
+                    displayContext.fillStyle = 'black';
+                    displayContext.fill();
                 }
             }
         }
-        return null;
+        displayContext.restore();
     }
 }
+
+export { Area };
+export default Area;
+

@@ -47,12 +47,8 @@ const ZERO = { x: 0, y: 0, z: 0 };
 //Copilot suggested an index.js file. But this is the core class that must be imported.
 //It makes sense to me that this is the file that has all the classes that need to be exported
 //to use the Bezier library
-export { PolyBezier } from './poly-bezier.js';
-export { PolyBeziers } from './poly-beziers.js';
 import { utils } from './utils.js';
-export { utils } from './utils.js';
-export { Affine } from './affine.js';
-export class Bezier
+class Bezier
 {
     static debugObj = null;
     constructor(coords)
@@ -141,6 +137,14 @@ export class Bezier
         let dist = utils.dist(points[0], points[order]);
         const aligned = utils.align(points, { p1: points[0], p2: points[order] });
         this._linear = !aligned.some((p) => abs(p.y) > dist / 100);
+        //if this is linear we can reduce the curve to a line
+        if (this._linear)
+        {
+            //The test above shows that the curve is linear. Before we change the order, we need to get the
+            //two endpoints of the curve. We will use these to create a new Bezier curve that is linear.
+            this.points = [points[0], points[order]];
+            this.order = 1;
+        }
 
         //The following are cached
         this._lut = [];
@@ -234,29 +238,99 @@ export class Bezier
         return utils.pointsToString(this.points);
     }
 
-    toSVG()
+    /*
+    * The toSVG() function is used to convert an array of Bezier curves to an SVG path data string.
+    * It doesn't make a lot of sense to convert a single Bezier curve to an SVG path data string.
+    * However, converting an array could be very useful. This should be a static function.
+    * 
+    * A little more discussion about what the function does would be helpful. It detects segments
+    * and loops. It compares the first point of a bezier to the last point of the previous bezier.
+    * If they are different, an 'M' command is added to the path data string. The start point is
+    * recorded to check for loops. As further beziers are processed, if the start point is the same
+    * as the end point of the previous bezier, the appropriate command ('L' or 'C') is added to the
+    * path data string. If the start point is different, the end point is compared to the start point
+    * from the last M command. If they are the same, a 'Z' command is added to the path data string.
+    * 
+    */
+    static toSVG(curves)
     {
-        if (this._3d) return false;
-        const p = this.points,
-            x = p[0].x,
-            y = p[0].y;
-        let s = [];
-
-        if (this._linear)
+        //console.log("toSVG curves :", curves);
+        if (!Array.isArray(curves))
         {
-            s = ["M", x, y, "L", p[this.order].x, p[this.order].y];
-        } else
-        {
-            s = ["M", x, y, this.order === 2 ? "Q" : "C"];
-            for (let i = 1, last = p.length; i < last; i++)
-            {
-                s.push(p[i].x);
-                s.push(p[i].y);
-            }
-
+            throw new Error("curves must be an array");
         }
-        return s.join(" ");
+        if (curves.length === 0)
+        {
+            return "";
+        }
+        if (!curves[0] instanceof Bezier)
+        {
+            throw new Error("curves must be an array of Bezier curves");
+        }
+        let segStart = null;
+        let lastEnd = null;
+        let path = "";
+        curves.forEach((curve) =>
+        {
+            const start = curve.points[0];
+            const end = curve.points[curve.order];
+            if (lastEnd !== null && utils.dist(lastEnd, start) > 0.0001)
+            {
+                segStart = null;
+            }
+            if (segStart === null)
+            {
+                segStart = start;
+                path += `M ${start.x} ${start.y} `;
+            }
+            switch (curve.order)
+            {
+                case 1:
+                    path += `L ${end.x} ${end.y} `;
+                    break;
+                case 2:
+                    path += `Q ${curve.points[1].x} ${curve.points[1].y} ${end.x} ${end.y} `;
+                    break;
+                case 3:
+                    path += `C ${curve.points[1].x} ${curve.points[1].y} ${curve.points[2].x} ${curve.points[2].y} ${end.x} ${end.y} `;
+                    break;
+                default:
+                    throw new Error("unsupported order");
+            }
+            lastEnd = end;
+           if (utils.dist(segStart, end) < 0.0001)
+            {
+                path += "Z ";
+                segStart = null;
+                lastEnd
+            }
+        });
+        return path;
     }
+
+    //toSVG()
+    //{
+    //    if (this._3d) return false;
+    //    const p = this.points,
+    //        x = p[0].x,
+    //        y = p[0].y;
+    //    let s = [];
+
+    //    if (this._linear)
+    //    {
+    //        s = ["M", x, y, "L", p[this.order].x, p[this.order].y];
+    //    } else
+    //    {
+    //        s = ["M", x, y, this.order === 2 ? "Q" : "C"];
+    //        for (let i = 1, last = p.length; i < last; i++)
+    //        {
+    //            s.push(p[i].x);
+    //            s.push(p[i].y);
+    //        }
+
+    //    }
+    //    return s.join(" ");
+    //}
 
     setRatios(ratios)
     {
@@ -580,10 +654,13 @@ export class Bezier
         // Handle linear Bezier curve (order 1)
         if (this.order === 1)
         {
+            //console.log("split() order 1 this :", t1, this);
             const p0 = this.points[0];
             const p1 = this.points[1];
+            //console.log("split() order 1 dist p0 p1 :", utils.dist(p0, p1));
             const q0 = utils.lerp(t1, p0, p1);
             const q1 = utils.lerp(t2, p0, p1);
+            //console.log("split() order 1 q0 :", q0, " q1 :", q1);
             const result = {
                 left: new Bezier([p0, q0]),
                 right: new Bezier([q0, p1]),
@@ -684,6 +761,19 @@ export class Bezier
     //    return result.right.split(t2).left;
     //  }
 
+    /*
+    * extrema() returns the extrema of the curve. At a minimum, it will return the
+    * start and end points of the curve. It may also return the points where the curve
+    * crosses the x-axis. It may also return the points where the curve is at a local
+    * maximum or minimum.
+    * 
+    * The function returns an object with the following properties:
+    * 
+    * x: an array of x values where the curve crosses the x-axis
+    * y: an array of y values where the curve is at a local maximum or minimum
+    * values: an array of t values where the curve is at a local maximum or minimum
+    * 
+    */
     extrema()
     {
         const result = {};
@@ -699,6 +789,7 @@ export class Bezier
                 };
                 let p = this.dpoints[0].map(mfn);
                 result[dim] = utils.droots(p);
+                //console.log("extrema() result[dim] :", result[dim]);
                 if (this.order === 3)
                 {
                     p = this.dpoints[1].map(mfn);
@@ -851,6 +942,11 @@ export class Bezier
         return abs(acos(s)) < pi / 3;
     }
 
+    /*
+    * reduce() returns an array of Bezier curves that are simple. A simple curve is one that
+    * does not have any inflection points. The curve is split at the inflection points. The
+    * function returns an array of Bezier curves that are simple.
+    */
     reduce()
     {
         if (this._reduced != null) return this._reduced;
@@ -875,7 +971,7 @@ export class Bezier
         {
             extrema.push(1);
         }
-        // console.log("reduce() pass1 extrema :", extrema);
+        //console.log("reduce() pass1 extrema :", extrema);
         for (t1 = extrema[0], i = 1; i < extrema.length; i++)
         {
             t2 = extrema[i];
@@ -936,17 +1032,17 @@ export class Bezier
                 pass2.push(segment);
             }
         });
-        // console.log('reduce pass2', pass2);
+        //console.log('reduce pass2', pass2);
         this._reduced = pass2;
-        if (Bezier.debugObj != null)
-        {
-            DrawUtils.displayShape(pass2, Bezier.debugObj, '#707070');
-            for (let iIdx = 0; iIdx < pass2.length; iIdx++)
-            {
-                DrawUtils.displayPoint(pass2[iIdx].get(0), 0.05, Bezier.debugObj, '#ff0000');
-                DrawUtils.displayPoint(pass2[iIdx].get(1), 0.05, Bezier.debugObj, '#0000ff');
-            }
-        }
+        //if (Bezier.debugObj != null)
+        //{
+        //    DrawUtils.displayShape(pass2, Bezier.debugObj, '#707070');
+        //    for (let iIdx = 0; iIdx < pass2.length; iIdx++)
+        //    {
+        //        DrawUtils.displayPoint(pass2[iIdx].get(0), 0.05, Bezier.debugObj, '#ff0000');
+        //        DrawUtils.displayPoint(pass2[iIdx].get(1), 0.05, Bezier.debugObj, '#0000ff');
+        //    }
+        //}
         return pass2;
     }
 
@@ -1141,6 +1237,7 @@ export class Bezier
     //These solutions will all be very close to each other.
     intersects(curve, curveIntersectionThreshold, raw = false)
     {
+        //console.log('intersects', this, curve, raw);
         //if(typeof raw === "undefined")raw = false;
         if (!curve) return this.selfintersects(curveIntersectionThreshold);
         //if(this._linear && curve._linear)
@@ -1156,14 +1253,16 @@ export class Bezier
         }
         if (curve instanceof Bezier)
         {
+            //console.log('reducing curve for curveintersects');
             curve = curve.reduce();
+            //console.log('reduced curve', curve);
         }
         let found = this.curveintersects(
             this.reduce(),
             curve,
             curveIntersectionThreshold
         );
-        // console.log('curveintersects', found);
+        //console.log('curveintersects', found);
         //Do we have more than 1 intersection
         if (!raw && (found.length > 1))
         {
@@ -1316,6 +1415,7 @@ export class Bezier
         let p = this.points;
         if (this.order == 3) this.points = [{ x: p[3].x, y: p[3].y, t: 0 }, p[2], p[1], { x: p[0].x, y: p[0].y, t: 1 }];
         if (this.order == 2) this.points = [{ x: p[2].x, y: p[2].y, t: 0 }, p[1], { x: p[0].x, y: p[0].y, t: 1 }];
+        if (this.order == 1) this.points = [{ x: p[1].x, y: p[1].y, t: 0 }, { x: p[0].x, y: p[0].y, t: 1 }];
         this.update();
         return this;
     }
@@ -1430,6 +1530,12 @@ export class Bezier
         return circles;
     }
 }
+export { Bezier };
+export default Bezier;
+export { PolyBezier } from './poly-bezier.js';
+export { PolyBeziers } from './poly-beziers.js';
+export { utils } from './utils.js';
+export { Affine } from './affine.js';
 //return Bezier;
 //})();
 //export { Bezier };
