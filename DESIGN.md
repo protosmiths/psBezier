@@ -169,6 +169,23 @@ States:
 - `COINCIDENT = 0`
 - `INNER = -1`
 
+These raw geometric states are relative to the particular other loop participating in the
+intersection topology. They do not include either loop's orientation or the complete
+opposite Area's signed membership.
+
+Loop orientation is a separate sign:
+
+- clockwise: `+1`;
+- counter-clockwise: `-1`.
+
+For a signed loop walk, derive rather than store:
+
+`effectiveWalkState = geometricState * orientationSign`
+
+Reversing a loop changes its orientation sign and traversal direction. It does not mutate or
+swap the loop-relative raw `INNER` and `OUTER` classifications. Coincident state remains zero
+under either orientation.
+
 ### Intersection balance invariant
 At every valid intersection:
 
@@ -204,7 +221,9 @@ Multi-Area expressions compose binary operations with explicit grouping. Union a
 
 Do not build N-way intersection topology without demonstrated need.
 
-For multi-loop Areas, intersections remain pairwise between paths, but edge classification is relative to the opposite **Area**, not merely the particular loop involved in an intersection.
+For multi-loop Areas, intersections and raw geometric edge states remain pairwise between
+paths. Area-wide signed winding or membership is separate information used by the Boolean
+operation; it must not be folded into the local loop-relative state.
 
 Detailed signed normalization, containment, zero-intersection handling, and boolean walking are later design milestones.
 
@@ -232,31 +251,15 @@ Do not silently resolve these during unrelated work:
 9. The canonical affine decomposition convention and reflection-matching policy used by
    matrix-only interpolation.
 
-### Boolean edge-state modeling question
+### Boolean Area-semantics boundary
 
-The current edge-state design may conflate three different facts that must be resolved before
-Milestone 7 or any Boolean walker:
+The local edge-state model is resolved: raw state is loop-relative, orientation is separate,
+and their product provides an orientation-derived effective walk state. The following remains
+unresolved: how complete opposite-Area signed winding and the requested Boolean operation
+select, discard, or reverse candidate directed edges.
 
-1. an incident branch's local `INNER`/`OUTER` relationship to the particular loop it
-   intersects;
-2. an edge-side sample's signed winding or membership relative to the complete opposite
-   Area; and
-3. operation-specific retention and traversal direction for union, intersection, or
-   subtraction.
-
-For overlapping clockwise A and B, the boundary of `A - B` follows the portion of A outside B
-in A's direction, then the portion of B inside A in the reverse direction. Consequently, a
-subtraction walker may correctly depart on an edge that is geometrically `INNER`; a universal
-"follow an OUTER edge" rule is insufficient. Globally swapping `INNER` and `OUTER` labels on
-counter-clockwise loops may hide the distinction between geometric containment and directed
-Boolean traversal.
-
-Pairwise loop-relative state may be the correct input to the local four-edge balance
-invariant, while final Boolean selection still requires Area-wide signed membership. A
-loop-only classification cannot by itself handle an edge inside an Area's outer loop but also
-inside one of its holes.
-
-Before approving the walker, define the separate data and truth tables, beginning with the
-two-intersection overlapping-loop subtraction case. Determine whether ADR-019 and ADR-024
-must be split into local-topology and Area-membership decisions. Do not resolve this merely by
-renaming or flipping states without counterexamples for multi-loop signed Areas.
+Before approving the final walker, define Area-level data and truth tables beginning with the
+two-intersection overlapping-loop subtraction case, then cover holes, disconnected signed
+components, coincidence, and zero-intersection cases. An edge can be geometrically inside an
+outer loop while lying inside one of that Area's holes, so effective loop walk state alone is
+not a complete Boolean selection rule.

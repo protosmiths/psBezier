@@ -316,6 +316,10 @@ At every valid intersection:
 
 `A_in + A_out + B_in + B_out = 0`
 
+The states are raw geometric classifications relative to the particular
+other loop participating in the intersection. They exclude loop
+orientation and complete opposite-Area membership.
+
 **Reasoning:** The classifications around an intersection are not
 independent. The zero-sum relationship provides a compact structural
 invariant that detects misclassified or misinterpreted topology before
@@ -392,18 +396,21 @@ grouping because it is not associative.
 
 ------------------------------------------------------------------------
 
-## ADR-024 --- Edge classification is relative to the opposite Area
+## ADR-024 --- Area membership is separate from local edge classification
 
-**Decision:** In a multi-loop Area operation, an edge from Area A is
-classified relative to Area B as a whole, not merely relative to the
-particular B loop that produced a neighboring intersection.
+**Decision:** In a multi-loop Area operation, raw geometric edge state is
+relative to the particular intersecting loop. Signed winding or membership
+relative to the complete opposite Area is computed and represented
+separately for Boolean selection.
 
-**Reasoning:** The opposite Area may contain multiple solids, holes,
-islands, or signed components. Its complete semantics determine whether
-a location is inner or outer.
+**Reasoning:** The four-edge balance invariant describes local topology
+between two loops and can be obscured if unrelated loops change Area-wide
+membership around that intersection. Conversely, loop-relative state alone
+cannot represent holes, islands, or disconnected signed components.
 
-**Consequence:** Containment/signed-Area semantics are foundational
-dependencies of final edge classification.
+**Consequence:** Local intersection validation and Area-level Boolean
+selection consume distinct state. Containment and signed-Area semantics
+remain foundational dependencies of the final selection truth tables.
 
 ------------------------------------------------------------------------
 
@@ -489,3 +496,25 @@ between matrices.
 reflection, singularity, and component-matching policies. Deliberate
 multiple rotations and moving pivots require caller-supplied information
 that is not present in the endpoint matrices.
+
+------------------------------------------------------------------------
+
+## ADR-030 --- Loop orientation derives effective walk state
+
+**Decision:** Keep loop orientation separate from raw loop-relative edge
+classification. With clockwise orientation `+1` and counter-clockwise
+orientation `-1`, derive:
+
+`effectiveWalkState = geometricState * orientationSign`
+
+Do not rewrite stored `INNER` and `OUTER` states when a loop is reversed.
+
+**Reasoning:** In overlapping-loop subtraction, the output can enter on an
+outer edge of A and correctly leave on a geometrically inner edge of B
+traversed in reverse. Multiplying by B's changed orientation sign supplies
+the effective positive walk state without destroying the direction-neutral
+local classification or its balance invariant.
+
+**Consequence:** Coincident state remains zero under either orientation.
+The effective state supports signed loop traversal but does not replace
+complete opposite-Area winding or operation-specific Boolean selection.
