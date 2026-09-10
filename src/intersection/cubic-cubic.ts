@@ -1,5 +1,7 @@
 import type { CubicBezier } from "../bezier/index.js";
+import { evaluateCubic, subcurve } from "../bezier/index.js";
 import type { ToleranceContext } from "../numeric/index.js";
+import { createToleranceContext } from "../numeric/index.js";
 import { analyzeCubicCubicDiscovery } from "./cubic-cubic-components.js";
 import type { CubicIntersectionDiscoveryComponent } from "./cubic-cubic-components.js";
 import { discoverCubicCubicIntersections } from "./cubic-cubic-discovery.js";
@@ -12,17 +14,59 @@ import {
   refineCubicOverlapBoundaries,
 } from "./cubic-cubic-refinement.js";
 import type { OverlapBoundaryKind } from "./cubic-cubic-refinement.js";
-import type { AnalyticIntersection } from "./intersection-types.js";
+import type { AnalyticIntersection, PairedIntersectionPoint } from "./intersection-types.js";
+import { overlapIntersection, pairedPoint, pointIntersection } from "./intersection-types.js";
 
-export type CubicComponentResolution = "point" | "overlap" | "none" | "incomplete";
+export type CubicComponentResolution = "point" | "overlap" | "multiple" | "none" | "incomplete";
 
 export interface CubicComponentDiagnostic {
   readonly component: CubicIntersectionDiscoveryComponent;
   readonly resolution: CubicComponentResolution;
   readonly result: AnalyticIntersection | null;
+  readonly results: readonly AnalyticIntersection[];
+  readonly localComponentCount: number;
   readonly refinementExhausted: boolean;
   readonly startBoundaryKind: OverlapBoundaryKind | null;
   readonly endBoundaryKind: OverlapBoundaryKind | null;
+}
+
+function mapPair(
+  pair: PairedIntersectionPoint,
+  first: CubicBezier,
+  second: CubicBezier,
+  component: CubicIntersectionDiscoveryComponent,
+): PairedIntersectionPoint {
+  const map = (value: number, start: number, end: number): number => start + value * (end - start);
+  const firstParameter = map(
+    pair.occurrences[0].parameter,
+    component.firstSpan.start,
+    component.firstSpan.end,
+  );
+  const secondParameter = map(
+    pair.occurrences[1].parameter,
+    component.secondSpan.start,
+    component.secondSpan.end,
+  );
+  return pairedPoint(
+    firstParameter,
+    evaluateCubic(first, firstParameter),
+    secondParameter,
+    evaluateCubic(second, secondParameter),
+  );
+}
+
+function mapLocalResult(
+  result: AnalyticIntersection,
+  first: CubicBezier,
+  second: CubicBezier,
+  component: CubicIntersectionDiscoveryComponent,
+): AnalyticIntersection {
+  if (result.kind === "point") return pointIntersection(mapPair(result, first, second, component));
+  return overlapIntersection(
+    mapPair(result.start, first, second, component),
+    mapPair(result.end, first, second, component),
+    result.direction,
+  );
 }
 
 export interface CubicCubicIntersectionReport {
@@ -72,6 +116,8 @@ export function intersectCubicCubicDetailed(
           component,
           resolution: refined.intersection === null || unresolved ? "incomplete" : "overlap",
           result: refined.intersection,
+          results: Object.freeze(refined.intersection === null ? [] : [refined.intersection]),
+          localComponentCount: 1,
           refinementExhausted: false,
           startBoundaryKind: refined.startKind,
           endBoundaryKind: refined.endKind,
@@ -81,29 +127,74 @@ export function intersectCubicCubicDetailed(
       continue;
     }
 
-    const refined = refineCubicIntersectionPointWithSubdivision(
-      first,
-      second,
-      component,
-      tolerance,
+    const firstLocal = subcurve(first, component.firstSpan.start, component.firstSpan.end);
+    const secondLocal = subcurve(second, component.secondSpan.start, component.secondSpan.end);
+    const localTolerance = createToleranceContext({
+      ...tolerance,
+      coordinate: Math.min(tolerance.coordinate, tolerance.intersection),
+      discovery: tolerance.intersection,
+    });
+    const localDiscovery = discoverCubicCubicIntersections(
+      firstLocal,
+      secondLocal,
+      localTolerance,
       options,
     );
-    const resolution: CubicComponentResolution = refined.exhausted
+    const localComponents = analyzeCubicCubicDiscovery(localDiscovery, localTolerance);
+    const localResults: AnalyticIntersection[] = [];
+    let refinementExhausted = localDiscovery.exhausted;
+    let unresolved = false;
+    for (const localComponent of localComponents) {
+      if (localComponent.kind === "overlap") {
+        const localOverlap = refineCubicOverlapBoundaries(
+          firstLocal,
+          secondLocal,
+          localComponent,
+          localTolerance,
+        );
+        if (
+          localOverlap.intersection === null ||
+          localOverlap.startKind === "unresolved" ||
+          localOverlap.endKind === "unresolved"
+        ) {
+          unresolved = true;
+        } else {
+          localResults.push(mapLocalResult(localOverlap.intersection, first, second, component));
+        }
+      } else {
+        const localPoint = refineCubicIntersectionPointWithSubdivision(
+          firstLocal,
+          secondLocal,
+          localComponent,
+          localTolerance,
+          options,
+        );
+        refinementExhausted ||= localPoint.exhausted;
+        if (localPoint.intersection !== null)
+          localResults.push(mapLocalResult(localPoint.intersection, first, second, component));
+      }
+    }
+    const incomplete = refinementExhausted || unresolved;
+    const resolution: CubicComponentResolution = incomplete
       ? "incomplete"
-      : refined.intersection === null
+      : localResults.length === 0
         ? "none"
-        : "point";
+        : localResults.length === 1
+          ? localResults[0]!.kind
+          : "multiple";
     diagnostics.push(
       Object.freeze({
         component,
         resolution,
-        result: refined.intersection,
-        refinementExhausted: refined.exhausted,
+        result: localResults.length === 1 ? localResults[0]! : null,
+        results: Object.freeze(localResults),
+        localComponentCount: localComponents.length,
+        refinementExhausted,
         startBoundaryKind: null,
         endBoundaryKind: null,
       }),
     );
-    if (refined.intersection !== null) results.push(refined.intersection);
+    results.push(...localResults);
   }
 
   results.sort((left, right) => firstParameter(left) - firstParameter(right));

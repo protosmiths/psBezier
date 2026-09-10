@@ -88,6 +88,29 @@ describe("public cubic/cubic orchestration", () => {
         tolerance.parameter,
     );
   });
+
+  it("does not collapse two approaching roots into one completed point", () => {
+    for (const halfSeparation of [0.08, 0.04, 0.02, 0.01]) {
+      const q0 = 0.25 - halfSeparation * halfSeparation;
+      const q1 = q0 - 1 / 3;
+      const q2 = q0 - 1 / 3;
+      const approaching = cubicBezier(
+        point(-1, q0),
+        point(-1 / 3, q1),
+        point(1 / 3, q2),
+        point(1, q0),
+      );
+      const report = intersectCubicCubicDetailed(horizontal, approaching, tolerance);
+      assert.equal(report.complete, true);
+      const oneToleranceOverlap =
+        report.intersections.length === 1 && report.intersections[0]!.kind === "overlap";
+      assert.ok(oneToleranceOverlap || report.intersections.length >= 2);
+      assert.equal(
+        report.intersections.length === 1 && report.intersections[0]!.kind === "point",
+        false,
+      );
+    }
+  });
 });
 
 describe("cubic/cubic point refinement", () => {
