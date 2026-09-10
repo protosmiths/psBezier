@@ -115,6 +115,8 @@ describe("cubic/cubic discovery components", () => {
     assert.equal(components[0]!.kind, "overlap");
     assert.equal(components[0]!.correspondence, "same");
     assert.ok(components[0]!.certificates.some((certificate) => certificate.certified));
+    assert.ok(components[0]!.certifiedSpine.length > 0);
+    assert.ok(components[0]!.certifiedSpine.every((certificate) => certificate.certified));
   });
 
   it("recognizes and certifies opposite-direction coincidence", () => {
@@ -126,6 +128,7 @@ describe("cubic/cubic discovery components", () => {
     assert.equal(components[0]!.kind, "overlap");
     assert.equal(components[0]!.correspondence, "opposite");
     assert.ok(components[0]!.certificates.some((certificate) => certificate.certified));
+    assert.ok(components[0]!.certifiedSpine.length > 0);
   });
 
   it("does not promote a transverse crossing to certified overlap", () => {

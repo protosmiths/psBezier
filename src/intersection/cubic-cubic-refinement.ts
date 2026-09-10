@@ -188,7 +188,7 @@ export function refineCubicOverlapBoundaries(
   if (component.kind !== "overlap" || component.correspondence === "unresolved") {
     return Object.freeze({ intersection: null, certifiedCellCount: 0 });
   }
-  const certified = component.certificates.filter((value) => value.certified);
+  const certified = component.certifiedSpine;
   if (certified.length === 0) {
     return Object.freeze({ intersection: null, certifiedCellCount: 0 });
   }

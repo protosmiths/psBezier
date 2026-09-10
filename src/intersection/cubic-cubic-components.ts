@@ -24,6 +24,8 @@ export interface CubicIntersectionDiscoveryComponent {
   readonly correspondence: DiscoveryCorrespondence;
   readonly kind: DiscoveryComponentKind;
   readonly certificates: readonly CertifiedDiscoveryCell[];
+  /** The connected certified chain that justified overlap classification. */
+  readonly certifiedSpine: readonly CertifiedDiscoveryCell[];
 }
 
 function intervalsAdjacent(
@@ -127,7 +129,7 @@ function span(cells: readonly CubicIntersectionDiscoveryCell[], first: boolean):
   return Object.freeze({ start, end });
 }
 
-function hasSpanningCertifiedChain(
+function findSpanningCertifiedChain(
   certifiedCells: readonly CubicIntersectionDiscoveryCell[],
   firstSpan: ParameterInterval,
   secondSpan: ParameterInterval,
@@ -135,8 +137,9 @@ function hasSpanningCertifiedChain(
   largestSecondCell: number,
   parameterTolerance: number,
   correspondence: "same" | "opposite",
-): boolean {
+): readonly CubicIntersectionDiscoveryCell[] | null {
   const unseen = new Set(certifiedCells.map((_, index) => index));
+  const spanning: CubicIntersectionDiscoveryCell[][] = [];
   while (unseen.size > 0) {
     const seed = unseen.values().next().value as number;
     unseen.delete(seed);
@@ -168,10 +171,15 @@ function hasSpanningCertifiedChain(
       chainSecond.start <= secondSpan.start + largestSecondCell &&
       chainSecond.end >= secondSpan.end - largestSecondCell
     ) {
-      return true;
+      spanning.push(chain);
     }
   }
-  return false;
+  spanning.sort((left, right) => {
+    const leftExtent = span(left, true).end - span(left, true).start;
+    const rightExtent = span(right, true).end - span(right, true).start;
+    return rightExtent - leftExtent || left[0]!.firstInterval.start - right[0]!.firstInterval.start;
+  });
+  return spanning[0] === undefined ? null : Object.freeze(spanning[0]);
 }
 
 function component(
@@ -199,7 +207,7 @@ function component(
     ...ordered.map((cell) => cell.secondInterval.end - cell.secondInterval.start),
   );
   const certifiedCells = certificates.filter((value) => value.certified).map((value) => value.cell);
-  const certifiedSpine = hasSpanningCertifiedChain(
+  const certifiedSpineCells = findSpanningCertifiedChain(
     certifiedCells,
     firstSpan,
     secondSpan,
@@ -207,6 +215,13 @@ function component(
     largestSecondCell,
     tolerance.parameter,
     correspondence === "unresolved" ? "same" : correspondence,
+  );
+  const certifiedSpine = Object.freeze(
+    certifiedSpineCells === null
+      ? []
+      : certificates.filter(
+          (certificate) => certificate.certified && certifiedSpineCells.includes(certificate.cell),
+        ),
   );
   const collapsedToCellScale =
     firstSpan.end - firstSpan.start <= largestFirstCell + tolerance.parameter &&
@@ -216,7 +231,7 @@ function component(
       ? collapsedToCellScale
         ? "point"
         : "ambiguous"
-      : certifiedSpine
+      : certifiedSpine.length > 0
         ? "overlap"
         : "ambiguous";
   return Object.freeze({
@@ -226,6 +241,7 @@ function component(
     correspondence,
     kind,
     certificates,
+    certifiedSpine,
   });
 }
 
