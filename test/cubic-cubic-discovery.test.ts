@@ -6,6 +6,7 @@ import {
   createToleranceContext,
   cubicBezier,
   discoverCubicCubicIntersections,
+  intersectCubicCubicDetailed,
   point,
   refineCubicIntersectionPoint,
   refineCubicIntersectionPointWithSubdivision,
@@ -19,6 +20,74 @@ const tolerance = createToleranceContext({
   intersection: 1e-9,
   parameter: 1e-10,
   relative: 1e-12,
+});
+
+describe("public cubic/cubic orchestration", () => {
+  it("retains discovery classification while emitting a refined point", () => {
+    const vertical = cubicBezier(point(0, -1), point(0, -1 / 3), point(0, 1 / 3), point(0, 1));
+    const report = intersectCubicCubicDetailed(horizontal, vertical, tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.intersections.length, 1);
+    assert.equal(report.intersections[0]!.kind, "point");
+    assert.equal(report.components[0]!.component.kind, "ambiguous");
+    assert.equal(report.components[0]!.resolution, "point");
+  });
+
+  it("emits a certified overlap with boundary diagnostics", () => {
+    const report = intersectCubicCubicDetailed(horizontal, horizontal, tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.intersections[0]!.kind, "overlap");
+    assert.equal(report.components[0]!.startBoundaryKind, "exact");
+    assert.equal(report.components[0]!.endBoundaryKind, "exact");
+  });
+
+  it("preserves discovery exhaustion in public diagnostics", () => {
+    const report = intersectCubicCubicDetailed(horizontal, horizontal, tolerance, { maxCells: 1 });
+    assert.equal(report.complete, false);
+    assert.equal(report.discovery.exhausted, true);
+    assert.deepEqual(report.intersections, []);
+  });
+
+  it("keeps three distinct parameter-pair events from one cubic pair", () => {
+    const oscillating = cubicBezier(
+      point(1, -0.08),
+      point(1 / 3, 0.14),
+      point(-1 / 3, -0.14),
+      point(-1, 0.08),
+    );
+    const report = intersectCubicCubicDetailed(horizontal, oscillating, tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.intersections.length, 3);
+    const pairs = report.intersections.map((result) => {
+      return result.kind === "point"
+        ? [result.occurrences[0].parameter, result.occurrences[1].parameter]
+        : [result.start.occurrences[0].parameter, result.start.occurrences[1].parameter];
+    });
+    const [firstPair, secondPair, thirdPair] = pairs;
+    assert.ok(firstPair !== undefined && secondPair !== undefined && thirdPair !== undefined);
+    assert.ok(firstPair[0]! < secondPair[0]! && secondPair[0]! < thirdPair[0]!);
+    assert.ok(new Set(pairs.map((pair) => pair.join("/"))).size === 3);
+  });
+
+  it("is input-order symmetric and deterministic", () => {
+    const vertical = cubicBezier(point(0, -1), point(0, -1 / 3), point(0, 1 / 3), point(0, 1));
+    const forward = intersectCubicCubicDetailed(horizontal, vertical, tolerance);
+    const repeated = intersectCubicCubicDetailed(horizontal, vertical, tolerance);
+    const reversed = intersectCubicCubicDetailed(vertical, horizontal, tolerance);
+    assert.deepEqual(repeated, forward);
+    assert.equal(reversed.complete, forward.complete);
+    const forwardPoint = forward.intersections[0];
+    const reversedPoint = reversed.intersections[0];
+    assert.ok(forwardPoint?.kind === "point" && reversedPoint?.kind === "point");
+    assert.ok(
+      Math.abs(forwardPoint.occurrences[0].parameter - reversedPoint.occurrences[1].parameter) <=
+        tolerance.parameter,
+    );
+    assert.ok(
+      Math.abs(forwardPoint.occurrences[1].parameter - reversedPoint.occurrences[0].parameter) <=
+        tolerance.parameter,
+    );
+  });
 });
 
 describe("cubic/cubic point refinement", () => {

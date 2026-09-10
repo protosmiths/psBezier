@@ -4,6 +4,7 @@ import type { AnalyticIntersection, LineSegment } from "./intersection-types.js"
 import { swapIntersectionInputs } from "./intersection-types.js";
 import { intersectLineCubic } from "./line-cubic.js";
 import { intersectLineLine } from "./line-line.js";
+import { intersectCubicCubic } from "./cubic-cubic.js";
 
 export type AnalyticGeometry = LineSegment | CubicBezier;
 
@@ -12,14 +13,14 @@ function isLineSegment(value: AnalyticGeometry): value is LineSegment {
 }
 
 /**
- * Dispatch intersections supported by the analytic milestones.
- * Returns null only when cubic/cubic subdivision is required (Milestone 6).
+ * Dispatch every supported geometry pair. Incomplete cubic/cubic searches throw;
+ * use intersectCubicCubicDetailed when diagnostics or custom budgets are required.
  */
 export function intersectAnalytic(
   first: AnalyticGeometry,
   second: AnalyticGeometry,
   tolerance: ToleranceContext,
-): readonly AnalyticIntersection[] | null {
+): readonly AnalyticIntersection[] {
   if (isLineSegment(first)) {
     return isLineSegment(second)
       ? intersectLineLine(first, second, tolerance)
@@ -34,5 +35,5 @@ export function intersectAnalytic(
     swapped.sort((left, right) => firstParameter(left) - firstParameter(right));
     return Object.freeze(swapped);
   }
-  return null;
+  return intersectCubicCubic(first, second, tolerance);
 }

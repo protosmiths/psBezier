@@ -254,9 +254,11 @@ describe("analytic intersection dispatch", () => {
     );
   });
 
-  it("defers cubic-cubic work to the later subdivision milestone", () => {
-    const first = cubicBezier(point(0, 0), point(1, 2), point(2, -2), point(3, 0));
-    const second = cubicBezier(point(0, 1), point(1, -1), point(2, 3), point(3, 1));
-    assert.equal(intersectAnalytic(first, second, tolerance), null);
+  it("dispatches cubic-cubic intersections through the subdivision engine", () => {
+    const first = cubicBezier(point(-1, 0), point(-1 / 3, 0), point(1 / 3, 0), point(1, 0));
+    const second = cubicBezier(point(0, -1), point(0, -1 / 3), point(0, 1 / 3), point(0, 1));
+    const result = requirePoint(requireSingle(intersectAnalytic(first, second, tolerance)!));
+    assertNear(result.occurrences[0].parameter, 0.5);
+    assertNear(result.occurrences[1].parameter, 0.5);
   });
 });
