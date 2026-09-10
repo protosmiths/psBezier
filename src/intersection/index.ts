@@ -41,4 +41,5 @@ export type {
   CubicPointRefinement,
   CubicPointRefinementOptions,
   CubicOverlapRefinement,
+  OverlapBoundaryKind,
 } from "./cubic-cubic-refinement.js";

@@ -142,6 +142,18 @@ cells of the component. Interior certification is repeated at discovery toleranc
 the endpoints are localized at intersection tolerance without requiring the whole
 interior to satisfy the tighter point-intersection tolerance.
 
+The retained certified overlap set is a connected corridor, not necessarily a
+unique ordered path. Boundaries come from its minimum/maximum A frontiers with B
+selected according to correspondence direction. Disconnected certified fragments
+outside that set cannot extend the result.
+
+At each frontier, first accept an exact shared endpoint if its paired discrepancy
+satisfies intersection tolerance. Otherwise, when an adjacent noncertified region
+brackets the frontier, bisect the localized paired correspondence to the
+discovery-tolerance contour. This is an epsilon-transition boundary, not a root of
+`A(tA)-B(tB)=0`. Curve-domain and unbracketed internal boundaries remain distinct
+diagnostic outcomes.
+
 Duplicate point results are merged only when both A and B parameters agree within
 parameter tolerance. Coordinate proximity alone never merges distinct
 occurrences.

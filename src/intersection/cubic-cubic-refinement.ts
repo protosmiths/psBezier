@@ -162,7 +162,11 @@ export function refineCubicIntersectionPointWithSubdivision(
 export interface CubicOverlapRefinement {
   readonly intersection: OverlapIntersection | null;
   readonly certifiedCellCount: number;
+  readonly startKind: OverlapBoundaryKind | null;
+  readonly endKind: OverlapBoundaryKind | null;
 }
+
+export type OverlapBoundaryKind = "exact" | "tolerance" | "domain" | "unresolved";
 
 function pairedAt(
   first: CubicBezier,
@@ -186,11 +190,21 @@ export function refineCubicOverlapBoundaries(
   tolerance: ToleranceContext,
 ): CubicOverlapRefinement {
   if (component.kind !== "overlap" || component.correspondence === "unresolved") {
-    return Object.freeze({ intersection: null, certifiedCellCount: 0 });
+    return Object.freeze({
+      intersection: null,
+      certifiedCellCount: 0,
+      startKind: null,
+      endKind: null,
+    });
   }
   const certified = component.certifiedSpine;
   if (certified.length === 0) {
-    return Object.freeze({ intersection: null, certifiedCellCount: 0 });
+    return Object.freeze({
+      intersection: null,
+      certifiedCellCount: 0,
+      startKind: null,
+      endKind: null,
+    });
   }
   const minimumA = Math.min(...certified.map((value) => value.cell.firstInterval.start));
   const maximumA = Math.max(...certified.map((value) => value.cell.firstInterval.end));
@@ -220,14 +234,78 @@ export function refineCubicOverlapBoundaries(
     values
       .map((value) => boundary(value, start))
       .reduce((best, value) => (value.errorSquared < best.errorSquared ? value : best));
-  const start = bestBoundary(startCells, true);
-  const end = bestBoundary(endCells, false);
+  const refineFrontier = (
+    frontierCells: readonly (typeof certified)[number][],
+    start: boolean,
+  ): readonly [PairedIntersectionPoint, OverlapBoundaryKind] => {
+    const inside = bestBoundary(frontierCells, start);
+    if (inside.errorSquared <= tolerance.intersection * tolerance.intersection) {
+      return Object.freeze([inside, "exact"]);
+    }
+    const firstParameter = inside.occurrences[0].parameter;
+    if ((start && firstParameter === 0) || (!start && firstParameter === 1)) {
+      return Object.freeze([inside, "domain"]);
+    }
+    const candidates = component.certificates
+      .filter((value) => !value.certified)
+      .map((value) => value.cell)
+      .filter((cell) => {
+        const candidateA = cell.representativeParameters[0];
+        if (start ? candidateA >= firstParameter : candidateA <= firstParameter) return false;
+        return frontierCells.some((frontier) => {
+          const b = frontier.cell.secondInterval;
+          return (
+            cell.secondInterval.start <= b.end + tolerance.parameter &&
+            b.start <= cell.secondInterval.end + tolerance.parameter
+          );
+        });
+      });
+    if (candidates.length === 0) return Object.freeze([inside, "unresolved"]);
+    const outsideCell = candidates.reduce((best, cell) =>
+      Math.abs(cell.representativeParameters[0] - firstParameter) <
+      Math.abs(best.representativeParameters[0] - firstParameter)
+        ? cell
+        : best,
+    );
+    let outsideA = outsideCell.representativeParameters[0];
+    let outsideB = outsideCell.representativeParameters[1];
+    let insideA = inside.occurrences[0].parameter;
+    let insideB = inside.occurrences[1].parameter;
+    const threshold = tolerance.discovery * tolerance.discovery;
+    for (let iteration = 0; iteration < 64; iteration += 1) {
+      if (
+        Math.abs(insideA - outsideA) <= tolerance.parameter &&
+        Math.abs(insideB - outsideB) <= tolerance.parameter
+      )
+        break;
+      const middleA = (insideA + outsideA) / 2;
+      const middleB = (insideB + outsideB) / 2;
+      const middle = pairedAt(first, second, middleA, middleB);
+      if (middle.errorSquared <= threshold) {
+        insideA = middleA;
+        insideB = middleB;
+      } else {
+        outsideA = middleA;
+        outsideB = middleB;
+      }
+    }
+    return Object.freeze([pairedAt(first, second, insideA, insideB), "tolerance"]);
+  };
+  const [start, startKind] = refineFrontier(startCells, true);
+  const [end, endKind] = refineFrontier(endCells, false);
   const discoverySquared = tolerance.discovery * tolerance.discovery;
   if (start.errorSquared > discoverySquared || end.errorSquared > discoverySquared) {
-    return Object.freeze({ intersection: null, certifiedCellCount: certified.length });
+    return Object.freeze({
+      intersection: null,
+      certifiedCellCount: certified.length,
+      startKind: null,
+      endKind: null,
+    });
   }
   return Object.freeze({
     intersection: overlapIntersection(start, end, component.correspondence),
     certifiedCellCount: certified.length,
+    startKind,
+    endKind,
   });
 }

@@ -131,8 +131,6 @@ function span(cells: readonly CubicIntersectionDiscoveryCell[], first: boolean):
 
 function findSpanningCertifiedChain(
   certifiedCells: readonly CubicIntersectionDiscoveryCell[],
-  firstSpan: ParameterInterval,
-  secondSpan: ParameterInterval,
   largestFirstCell: number,
   largestSecondCell: number,
   parameterTolerance: number,
@@ -165,11 +163,7 @@ function findSpanningCertifiedChain(
     const chainSecond = span(chain, false);
     if (
       chainFirst.end - chainFirst.start > 2 * largestFirstCell &&
-      chainSecond.end - chainSecond.start > 2 * largestSecondCell &&
-      chainFirst.start <= firstSpan.start + largestFirstCell &&
-      chainFirst.end >= firstSpan.end - largestFirstCell &&
-      chainSecond.start <= secondSpan.start + largestSecondCell &&
-      chainSecond.end >= secondSpan.end - largestSecondCell
+      chainSecond.end - chainSecond.start > 2 * largestSecondCell
     ) {
       spanning.push(chain);
     }
@@ -209,8 +203,6 @@ function component(
   const certifiedCells = certificates.filter((value) => value.certified).map((value) => value.cell);
   const certifiedSpineCells = findSpanningCertifiedChain(
     certifiedCells,
-    firstSpan,
-    secondSpan,
     largestFirstCell,
     largestSecondCell,
     tolerance.parameter,

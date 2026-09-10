@@ -162,6 +162,8 @@ describe("cubic/cubic overlap boundary refinement", () => {
     );
     assert.equal(result.intersection.start.errorSquared, 0);
     assert.equal(result.intersection.end.errorSquared, 0);
+    assert.equal(result.startKind, "exact");
+    assert.equal(result.endKind, "exact");
   });
 
   it("preserves opposite endpoint correspondence", () => {
@@ -198,6 +200,28 @@ describe("cubic/cubic overlap boundary refinement", () => {
     assert.ok(result.intersection !== null);
     assert.ok(result.intersection.start.errorSquared > tolerance.intersection ** 2);
     assert.ok(result.intersection.start.errorSquared <= tolerance.discovery ** 2);
+    assert.equal(result.startKind, "domain");
+    assert.equal(result.endKind, "domain");
+  });
+
+  it("localizes shallow-crossing snap transitions at discovery tolerance", () => {
+    const shallow = cubicBezier(
+      point(-1, -0.01),
+      point(-1 / 3, -0.01 / 3),
+      point(1 / 3, 0.01 / 3),
+      point(1, 0.01),
+    );
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, shallow, tolerance),
+      tolerance,
+    ).find((value) => value.kind === "overlap");
+    assert.ok(component !== undefined);
+    const result = refineCubicOverlapBoundaries(horizontal, shallow, component, tolerance);
+    assert.ok(result.intersection !== null);
+    assert.equal(result.startKind, "tolerance");
+    assert.equal(result.endKind, "tolerance");
+    assert.ok(result.intersection.start.errorSquared <= tolerance.discovery ** 2);
+    assert.ok(result.intersection.end.errorSquared <= tolerance.discovery ** 2);
   });
 });
 
