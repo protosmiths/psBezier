@@ -61,6 +61,22 @@ describe("cubic/cubic discovery cells", () => {
     );
   });
 
+  it("balances successive one-axis splits for comparable geometry", () => {
+    const coarseTolerance = createToleranceContext({
+      ...tolerance,
+      discovery: 0.75,
+    });
+    const result = discoverCubicCubicIntersections(horizontal, horizontal, coarseTolerance);
+    assert.equal(result.exhausted, false);
+    assert.ok(
+      result.cells.every(
+        (cell) =>
+          cell.firstInterval.end - cell.firstInterval.start <= 0.5 &&
+          cell.secondInterval.end - cell.secondInterval.start <= 0.5,
+      ),
+    );
+  });
+
   it("reports budget exhaustion instead of turning it into geometry", () => {
     const result = discoverCubicCubicIntersections(horizontal, horizontal, tolerance, {
       maxCells: 1,

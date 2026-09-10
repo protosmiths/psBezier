@@ -23,10 +23,19 @@ the two source portions over an interval.
 
 ## 3. Adaptive paired subdivision
 
-For every surviving node, split the geometrically larger member. If their sizes
-are comparable, split both and test the four child pairs. This permits different
-parameter speeds without forcing equal parameter widths or identical subdivision
-depths.
+For every surviving node, split only the geometrically larger member. Ties are
+resolved deterministically in favor of A. This produces a binary, alternating
+partition of paired parameter space. When both axes require refinement, two
+successive one-axis splits generate the same four parameter rectangles that a
+simultaneous split would have generated, but disjoint children can be pruned after
+the first split rather than first creating all four combinations. It also avoids a
+single node immediately quadrupling the work.
+
+This permits different parameter speeds without forcing equal parameter widths or
+identical subdivision depths. After the larger side is split, the other side will
+naturally be selected when it has the larger remaining geometric extent. `depth`
+counts individual one-axis splits, so a balanced refinement of both axes consumes
+two depth levels rather than one quadtree level.
 
 Stop subdividing a branch when either:
 
