@@ -123,9 +123,11 @@ Do **not** hard-code the topology as intrinsically `pathA/tA` plus `pathB/tB` wi
 
 Implement the more general model described in `OFFSET_TOPOLOGY.md`:
 - one conceptual geometric Intersection;
-- two IntersectionIncidences (final name may vary);
+- one binary IntersectionEvent with two IntersectionIncidences (final names may vary);
 - each incidence references a path and globalT occurrence;
 - the two incidences may reference different paths or the same path at different globalTs;
+- distinct event identity when multiple events share one geometric point, without prematurely
+  deciding the final higher-valence vertex-grouping model;
 - next/previous incidence ordering along each path traversal;
 - canonical averaged intersection point + errorSquared;
 - outgoing edge state/metadata associated with the appropriate incidence/consumer;
@@ -134,6 +136,9 @@ Implement the more general model described in `OFFSET_TOPOLOGY.md`:
 - local balance validation for ordinary two-loop boolean topology;
 - same/opposite overlap relationships;
 - self-intersection validation cases.
+
+Keep path-occurrence adjacency separate from consumer-scoped classification when the same
+incidence topology can be reused by Boolean and offset operations.
 
 Build validation tools before any boolean walker or offset regularizer.
 

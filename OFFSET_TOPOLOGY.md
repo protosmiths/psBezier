@@ -70,7 +70,7 @@ Public normalized Area boundaries may eventually prohibit self-intersection, but
 
 This changes the fundamental intersection abstraction.
 
-An intersection should not be modeled as intrinsically `pathA/tA` plus `pathB/tB`. Instead, it has two **incidences** (two path passages through the same conceptual geometric point):
+An intersection event should not be modeled as intrinsically `pathA/tA` plus `pathB/tB`. Instead, a binary intersection event has two **incidences** (two path passages through the same conceptual geometric point):
 
 ```text
 Intersection
@@ -88,6 +88,18 @@ incidence1.globalT !== incidence2.globalT
 ```
 
 Each incidence has its own incoming and outgoing branch on its path traversal.
+
+### Binary event is not necessarily a complete geometric vertex
+
+The two-incidence rule belongs to a binary intersection **event**. It must not silently assert
+that only two path passages can occur at one geometric location. Several pairwise events may
+be coincident within tolerance, such as three loops meeting at one point, a self-intersection
+coinciding with another path, or several segment endpoints sharing a vertex.
+
+Whether those events remain distinct and cross-referenced or are grouped under a higher-level
+`IntersectionVertex` is still unresolved. Preserve enough event and incidence identity to
+make that decision later. Do not deduplicate multiple events merely because their canonical
+points are numerically equivalent.
 
 ## 7. Intersection incidence replaces hard-coded A/B topology
 
@@ -107,6 +119,13 @@ For an ordinary A/B intersection, the two incidences participate in two differen
 For a self-intersection, both incidences participate at different locations in the same path ring.
 
 This preserves the core concept that an intersection has two path passages, each with one incoming and one outgoing branch, without requiring those passages to belong to different path objects.
+
+An incidence identifies a path occurrence and its traversal adjacency. A raw geometric state
+relative to another loop, Area-wide membership, or offset-retention decision is scoped to a
+particular arrangement/consumer and is not necessarily an intrinsic permanent property of
+that reusable occurrence. The implementation may store such state beside an incidence when
+the owning arrangement makes that scope unambiguous; it must not make later consumers inherit
+an unrelated classification accidentally.
 
 The array/index/globalT model of `BezierPath` remains unchanged.
 
@@ -150,7 +169,12 @@ Area booleans and offset regularization supply different classification/retentio
 
 Do not assume every output boundary is only a concatenation of surviving source edges.
 
-At an intersection, reconstruction may switch from one raw path branch to another. After trimming/removing invalid portions, surviving pieces may also require a newly constructed connector consistent with the requested join semantics.
+At an intersection, reconstruction may switch from one raw path branch to another. Some
+construction operations may also require a newly constructed connector consistent with their
+requested join semantics. Regularization must not invent a connector merely to hide a gap or
+topology failure: when surviving branches meet at a discovered intersection, they should join
+at that intersection. Any new connector must have an explicit operation-level geometric
+reason and validation rule.
 
 A future `BoundaryBuilder`, `PathAssembler`, or equivalent should be able to append:
 
