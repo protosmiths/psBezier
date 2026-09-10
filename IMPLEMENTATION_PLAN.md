@@ -3,13 +3,15 @@
 ## Strategy
 Build a new clean implementation from the specification upward. Do not begin by refactoring legacy `Area.js` or reproducing the old hierarchy.
 
-The first milestone deliberately stops before Area boolean traversal. We want to inspect the foundation before encoding the remaining signed-area decisions.
+The first milestones deliberately stop before Area boolean traversal and robust closed-path offset regularization. We want to inspect the common geometry/topology foundation before encoding the remaining signed-area and offset-retention decisions.
+
+Read `OFFSET_TOPOLOGY.md` before designing intersection topology or path-offset APIs.
 
 ## Milestone 0 — Repository foundation
 - Establish modern module/package structure.
 - Choose/configure TypeScript unless the project owner explicitly chooses JavaScript before bootstrap.
 - Configure tests, linting, formatting, and build.
-- Add `DESIGN.md`, `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, and `ATTRIBUTION.md`.
+- Add architecture/design documents.
 - No application framework dependency.
 
 ## Milestone 1 — Numeric/vector primitives
@@ -32,18 +34,14 @@ Implement before curve and path transformation APIs:
 - unambiguous composition order;
 - pure point and vector transformation;
 - determinant, orientation, and tolerance-aware inverse;
-- tests for identity, composition order, inverse round trips, reflections, singular and
-  near-singular transforms, and non-mutation.
+- tests for identity, composition order, inverse round trips, reflections, singular and near-singular transforms, and non-mutation.
 
-Specify and test canonical decomposition separately before implementing transform
-interpolation. Do not port the legacy `affine.js` object or its ambiguous `getX` methods.
-When cubic Béziers are available, add the invariant that transforming a curve then evaluating
-it agrees with evaluating it and then transforming the resulting point.
+Specify and test canonical decomposition separately before implementing transform interpolation. Do not port the legacy `affine.js` object or its ambiguous `getX` methods. When cubic Béziers are available, add the invariant that transforming a curve then evaluating it agrees with evaluating it and then transforming the resulting point.
 
 ## Milestone 2 — Free cubic Bézier
 Implement the minimal immutable free Bézier API needed by later work:
 - evaluation;
-- derivative/tangent;
+- derivative/tangent/normal;
 - split/subcurve;
 - bounding box/extrema;
 - reversal;
@@ -52,6 +50,13 @@ Implement the minimal immutable free Bézier API needed by later work:
 Port/reimplement proven Pomax mathematics selectively with attribution where code is adapted.
 
 Test exact subdivision reconstruction and linear detection extensively.
+
+### Future-offset awareness
+Milestone 2 does **not** implement robust offsets. However, avoid APIs that would prevent later offset approximation from:
+- evaluating position/tangent/normal robustly;
+- subdividing/refining a cubic adaptively;
+- producing multiple cubic pieces for one true offset segment;
+- measuring approximation error under the geometry tolerance policy.
 
 ## Milestone 3 — Analytic line handling and intersection dispatch
 Implement:
@@ -79,13 +84,18 @@ Implement:
 
 Test insertion/removal/reindexing in builder and immutability of built paths.
 
-## Milestone 5 — Construction utilities
-Implement only broadly useful primitives required by tests/app migration:
+The path representation must permit later self-intersection processing; a path may have multiple distinct globalT occurrences at the same geometric point.
+
+## Milestone 5 — Basic construction utilities
+Implement broadly useful local construction primitives required by tests/app migration:
 - canonical quarter-circle/circle;
 - arc by canonical subdivision;
-- selected tangent/offset/fillet helpers.
+- selected tangent/parallel/perpendicular helpers;
+- local join construction where requirements are settled.
 
 Keep arcs as Bézier output, never a kernel primitive.
+
+Do **not** treat robust closed-path offset as a trivial per-curve utility in this milestone. A local cubic offset approximation may be prototyped/tested if useful, but global contiguous offset regularization waits for self-intersection/incidence topology.
 
 ## Milestone 6 — Two-pass cubic/cubic intersection engine
 Implement discovery and refinement as separate internal stages.
@@ -105,30 +115,54 @@ Expose diagnostics sufficient to visualize/debug candidate intervals and errors.
 
 The exact overlap-candidate criterion is still a design question: implement only after it is explicitly approved.
 
-## Milestone 7 — Intersection topology and edges
-Implement:
-- canonical averaged intersection point + errorSquared;
-- globalT on both paths;
-- dual next/prev intersection rings;
-- outgoing edge state on each path;
-- lazy path-interval derivation;
-- states `OUTER=+1`, `COINCIDENT=0`, `INNER=-1`;
-- balance invariant `A_in+A_out+B_in+B_out=0`;
-- same/opposite overlap relationships.
+### Self-intersection requirement
+The engine must support invoking the same path against itself while excluding trivial adjacency/identity cases appropriately. The output model must be capable of representing two distinct parameter occurrences on the same path.
 
-Build validation tools before any boolean walker.
+## Milestone 7 — Intersection incidence topology and edges
+Do **not** hard-code the topology as intrinsically `pathA/tA` plus `pathB/tB` with separate A/B rings.
+
+Implement the more general model described in `OFFSET_TOPOLOGY.md`:
+- one conceptual geometric Intersection;
+- two IntersectionIncidences (final name may vary);
+- each incidence references a path and globalT occurrence;
+- the two incidences may reference different paths or the same path at different globalTs;
+- next/previous incidence ordering along each path traversal;
+- canonical averaged intersection point + errorSquared;
+- outgoing edge state/metadata associated with the appropriate incidence/consumer;
+- lazy path-interval derivation between consecutive incidences;
+- loop-relative states `OUTER=+1`, `COINCIDENT=0`, `INNER=-1` where applicable;
+- local balance validation for ordinary two-loop boolean topology;
+- same/opposite overlap relationships;
+- self-intersection validation cases.
+
+Build validation tools before any boolean walker or offset regularizer.
+
+## Milestone 7A — Boundary reconstruction infrastructure
+Design/implement a reusable boundary assembly mechanism only after incidence topology is stable.
+
+It must be capable of building a new immutable path from:
+- selected source path intervals;
+- reversed intervals where semantically valid;
+- newly constructed line connectors;
+- newly constructed cubic/round-join connectors.
+
+Do not assume every result boundary is only a subset of the original edges.
+
+This infrastructure is intended to be shared by Area booleans and robust offset cleanup, while their retention/classification policies remain separate.
 
 ## STOP / DESIGN REVIEW
-Do not proceed automatically into Area boolean traversal.
+Do not proceed automatically into Area boolean traversal or robust closed-offset regularization.
 
 Review:
 - API ergonomics;
 - performance at accuracy-first tolerances;
 - intersection/overlap diagnostics;
+- self-intersection incidence behavior;
 - topology invariants;
+- boundary reconstruction requirements;
 - registration-number stress cases.
 
-Then resolve the remaining Area questions in `DESIGN.md`.
+Then resolve the remaining Area and offset-retention questions in the design documents.
 
 ## Later milestones — intentionally unresolved
 After design approval:
@@ -137,6 +171,11 @@ After design approval:
 - zero-intersection cases;
 - boolean walk;
 - union/intersection/subtraction;
+- local cubic offset approximation to configured accuracy;
+- contiguous raw path offset with explicit join policies;
+- positive/outward offset regularization;
+- negative/inward offset regularization;
+- multi-loop/Area offset behavior;
 - large registration-number fuzz/visual harness;
 - SVG I/O and application migrations.
 
