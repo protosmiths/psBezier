@@ -72,9 +72,16 @@ identity.
 
 ## 6. Mutual-closeness validation
 
-An overlap candidate needs a monotone pairing through its cells. For each paired
-portion, transform both subcurves to the same directed local parameter interval
-(reversing B for opposite correspondence), then bound their difference Bézier.
+The difference-curve test certifies a proposed local correspondence; it does not
+discover that correspondence. The candidate graph and continued subdivision must
+first establish sufficiently small paired portions and their direction. Do not
+linearly pair two broad source intervals and treat a failed certificate as evidence
+that no overlap exists: their true correspondence may advance nonlinearly or at
+unequal parameter speeds.
+
+For each sufficiently localized paired portion, transform both subcurves to the
+same directed local parameter interval (reversing B for opposite correspondence),
+then bound their difference Bézier.
 
 The four control vectors of the difference cubic form a convex hull containing
 the complete pointwise difference curve. If every control-vector squared length
@@ -82,9 +89,11 @@ is at most `tolerance.discovery²`, the portions are conservatively certified as
 mutually close. Failure to certify is not proof of separation: subdivide the
 paired portions and retry until certified or resolution-limited.
 
-This test is sufficient rather than necessary. It may classify a borderline
-region conservatively as points/ambiguous, but it cannot certify an overlap whose
-paired pointwise displacement exceeds the tolerance.
+This test is sufficient rather than necessary. Failure means subdivide the proposed
+pairing and try again until it is certified or resolution-limited; it does not mean
+the curves are separated. The test may classify a borderline region conservatively
+as points/ambiguous, but it cannot certify an overlap whose paired pointwise
+displacement exceeds the tolerance.
 
 ## 7. Component classification
 
@@ -98,11 +107,18 @@ paired pointwise displacement exceeds the tolerance.
 parameter width. A large parameter interval on a nearly stationary curve is not
 automatically an overlap.
 
+Ambiguity is an internal discovery and diagnostic state, not a third public
+intersection geometry. Public results use a deterministic conservative policy:
+emit the refined point representation unless a persistent interval has a monotone,
+certified overlap correspondence. Diagnostics retain that the source component was
+ambiguous, allowing the alternate tolerance-equivalent interpretation to be tested
+later without asking topology consumers to walk an unresolved object.
+
 ## 8. Refinement
 
 Point candidates restart from their saved rectangle. Use safeguarded Newton
 iteration on `A(tA)-B(tB)=0`; when the Jacobian is ill-conditioned, fall back to
-subdivision/bisection within the saved rectangle. Accept only a paired point whose
+subdivision refinement within the saved rectangle. Accept only a paired point whose
 discrepancy is within `tolerance.intersection`.
 
 Overlap candidates refine their two boundary correspondences from the terminal
