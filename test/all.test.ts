@@ -1,6 +1,7 @@
 import "./affine.test.js";
 import "./cubic-bezier.test.js";
 import "./construction.test.js";
+import "./cubic-cubic-discovery.test.js";
 import "./foundation.test.js";
 import "./intersection.test.js";
 import "./numeric.test.js";

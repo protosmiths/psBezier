@@ -17,3 +17,11 @@ export type {
 } from "./intersection-types.js";
 export { intersectLineCubic } from "./line-cubic.js";
 export { intersectLineLine } from "./line-line.js";
+export { discoverCubicCubicIntersections } from "./cubic-cubic-discovery.js";
+export type {
+  CubicIntersectionDiscovery,
+  CubicIntersectionDiscoveryCell,
+  CubicIntersectionDiscoveryOptions,
+  DiscoveryTermination,
+  ParameterInterval,
+} from "./cubic-cubic-discovery.js";
