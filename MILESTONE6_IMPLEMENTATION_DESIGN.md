@@ -149,10 +149,17 @@ outside that set cannot extend the result.
 
 At each frontier, first accept an exact shared endpoint if its paired discrepancy
 satisfies intersection tolerance. Otherwise, when an adjacent noncertified region
-brackets the frontier, bisect the localized paired correspondence to the
-discovery-tolerance contour. This is an epsilon-transition boundary, not a root of
-`A(tA)-B(tB)=0`. Curve-domain and unbracketed internal boundaries remain distinct
-diagnostic outcomes.
+may bracket the frontier, search outward through direction-consistent cells until
+a paired sample is actually shown to have discrepancy greater than discovery
+tolerance. Failure of the convex-hull certificate alone is not outside evidence.
+Only with a proven inside/outside pair may refinement bisect the localized paired
+correspondence to the discovery-tolerance contour. This is an epsilon-transition
+boundary, not a root of `A(tA)-B(tB)=0`.
+
+Linear interpolation of both parameters during that bisection is local subdivision
+of an already-established paired bracket; it is not an assumption that the global
+A-to-B parameter mapping is linear. Curve-domain and unbracketed internal
+boundaries remain distinct diagnostic outcomes.
 
 Duplicate point results are merged only when both A and B parameters agree within
 parameter tolerance. Coordinate proximity alone never merges distinct

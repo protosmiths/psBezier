@@ -246,19 +246,21 @@ export function refineCubicOverlapBoundaries(
     if ((start && firstParameter === 0) || (!start && firstParameter === 1)) {
       return Object.freeze([inside, "domain"]);
     }
+    const insideBParameter = inside.occurrences[1].parameter;
+    const threshold = tolerance.discovery * tolerance.discovery;
+    const directionSign = component.correspondence === "same" ? 1 : -1;
     const candidates = component.certificates
       .filter((value) => !value.certified)
       .map((value) => value.cell)
       .filter((cell) => {
         const candidateA = cell.representativeParameters[0];
+        const candidateB = cell.representativeParameters[1];
         if (start ? candidateA >= firstParameter : candidateA <= firstParameter) return false;
-        return frontierCells.some((frontier) => {
-          const b = frontier.cell.secondInterval;
-          return (
-            cell.secondInterval.start <= b.end + tolerance.parameter &&
-            b.start <= cell.secondInterval.end + tolerance.parameter
-          );
-        });
+        const progression = (candidateA - firstParameter) * (candidateB - insideBParameter);
+        if (directionSign * progression < -tolerance.parameter * tolerance.parameter) return false;
+        // Failure of the hull certificate is not an outside sample. The paired
+        // representative itself must establish displacement beyond epsilon.
+        return cell.discrepancySquared > threshold;
       });
     if (candidates.length === 0) return Object.freeze([inside, "unresolved"]);
     const outsideCell = candidates.reduce((best, cell) =>
@@ -271,7 +273,8 @@ export function refineCubicOverlapBoundaries(
     let outsideB = outsideCell.representativeParameters[1];
     let insideA = inside.occurrences[0].parameter;
     let insideB = inside.occurrences[1].parameter;
-    const threshold = tolerance.discovery * tolerance.discovery;
+    // This straight interpolation is only within an already localized paired
+    // bracket; it makes no claim that the global A-to-B correspondence is linear.
     for (let iteration = 0; iteration < 64; iteration += 1) {
       if (
         Math.abs(insideA - outsideA) <= tolerance.parameter &&

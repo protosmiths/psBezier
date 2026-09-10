@@ -223,6 +223,37 @@ describe("cubic/cubic overlap boundary refinement", () => {
     assert.ok(result.intersection.start.errorSquared <= tolerance.discovery ** 2);
     assert.ok(result.intersection.end.errorSquared <= tolerance.discovery ** 2);
   });
+
+  it("localizes snap transitions with unequal parameter speed", () => {
+    const shallowSmoothstep = cubicBezier(
+      point(-1, -0.01),
+      point(-1, -0.01),
+      point(1, 0.01),
+      point(1, 0.01),
+    );
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, shallowSmoothstep, tolerance),
+      tolerance,
+    ).find((value) => value.kind === "overlap");
+    assert.ok(component !== undefined);
+    const result = refineCubicOverlapBoundaries(
+      horizontal,
+      shallowSmoothstep,
+      component,
+      tolerance,
+    );
+    assert.ok(result.intersection !== null);
+    assert.equal(result.startKind, "tolerance");
+    assert.equal(result.endKind, "tolerance");
+    assert.ok(result.intersection.start.errorSquared <= tolerance.discovery ** 2);
+    assert.ok(result.intersection.end.errorSquared <= tolerance.discovery ** 2);
+    assert.ok(
+      Math.abs(
+        result.intersection.start.occurrences[0].parameter -
+          result.intersection.start.occurrences[1].parameter,
+      ) > 0.01,
+    );
+  });
 });
 
 const horizontal = cubicBezier(point(-1, 0), point(-1 / 3, 0), point(1 / 3, 0), point(1, 0));
