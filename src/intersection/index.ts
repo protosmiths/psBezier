@@ -32,4 +32,11 @@ export type {
   DiscoveryComponentKind,
   DiscoveryCorrespondence,
 } from "./cubic-cubic-components.js";
-export { refineCubicIntersectionPoint } from "./cubic-cubic-refinement.js";
+export {
+  refineCubicIntersectionPoint,
+  refineCubicIntersectionPointWithSubdivision,
+} from "./cubic-cubic-refinement.js";
+export type {
+  CubicPointRefinement,
+  CubicPointRefinementOptions,
+} from "./cubic-cubic-refinement.js";

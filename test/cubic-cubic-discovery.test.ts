@@ -8,6 +8,7 @@ import {
   discoverCubicCubicIntersections,
   point,
   refineCubicIntersectionPoint,
+  refineCubicIntersectionPointWithSubdivision,
   reverseCubic,
 } from "../src/index.js";
 
@@ -45,6 +46,61 @@ describe("cubic/cubic point refinement", () => {
       tolerance,
     )[0]!;
     assert.equal(refineCubicIntersectionPoint(horizontal, parallel, component, tolerance), null);
+  });
+
+  it("refines an off-grid tangency without assuming a nonsingular crossing", () => {
+    const tangentParameter = 0.523456789;
+    const startY = tangentParameter * tangentParameter;
+    const endY = (1 - tangentParameter) * (1 - tangentParameter);
+    const tangent = cubicBezier(
+      point(-1, startY),
+      point(-1 / 3, startY - (2 * tangentParameter) / 3),
+      point(1 / 3, endY - (2 - 2 * tangentParameter) / 3),
+      point(1, endY),
+    );
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, tangent, tolerance),
+      tolerance,
+    )[0]!;
+    const tangentTolerance = createToleranceContext({
+      ...tolerance,
+      coordinate: 1e-14,
+      intersection: 1e-14,
+    });
+    const result = refineCubicIntersectionPointWithSubdivision(
+      horizontal,
+      tangent,
+      component,
+      tangentTolerance,
+    );
+    assert.equal(result.exhausted, false);
+    assert.ok(result.intersection !== null);
+    assert.ok(
+      result.intersection.errorSquared <=
+        tangentTolerance.intersection * tangentTolerance.intersection,
+    );
+  });
+
+  it("can conclusively prune a saved near-parallel component at tighter tolerance", () => {
+    const parallel = cubicBezier(
+      point(-1, 0.0005),
+      point(-1 / 3, 0.0005),
+      point(1 / 3, 0.0005),
+      point(1, 0.0005),
+    );
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, parallel, tolerance),
+      tolerance,
+    )[0]!;
+    const result = refineCubicIntersectionPointWithSubdivision(
+      horizontal,
+      parallel,
+      component,
+      tolerance,
+    );
+    assert.equal(result.intersection, null);
+    assert.equal(result.exhausted, false);
+    assert.equal(result.usedSubdivision, true);
   });
 });
 

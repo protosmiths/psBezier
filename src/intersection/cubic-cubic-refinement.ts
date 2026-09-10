@@ -1,8 +1,9 @@
 import type { CubicBezier } from "../bezier/index.js";
-import { cubicDerivative, evaluateCubic } from "../bezier/index.js";
+import { cubicDerivative, evaluateCubic, subcurve } from "../bezier/index.js";
 import type { ToleranceContext } from "../numeric/index.js";
-import { cross, lengthSquared, subtractPoints } from "../numeric/index.js";
+import { createToleranceContext, cross, lengthSquared, subtractPoints } from "../numeric/index.js";
 import type { CubicIntersectionDiscoveryComponent } from "./cubic-cubic-components.js";
+import { discoverCubicCubicIntersections } from "./cubic-cubic-discovery.js";
 import type { PointIntersection } from "./intersection-types.js";
 import { pairedPoint, pointIntersection } from "./intersection-types.js";
 
@@ -70,4 +71,86 @@ export function refineCubicIntersectionPoint(
   // Newton is only an accelerator. The caller retains the unresolved component
   // for subdivision refinement when this local solve is singular or inconclusive.
   return null;
+}
+
+export interface CubicPointRefinementOptions {
+  readonly maxDepth?: number;
+  readonly maxCells?: number;
+}
+
+export interface CubicPointRefinement {
+  readonly intersection: PointIntersection | null;
+  readonly usedSubdivision: boolean;
+  readonly exhausted: boolean;
+  readonly visitedNodes: number;
+}
+
+/** Use safeguarded Newton first, then refine only inside the saved component rectangle. */
+export function refineCubicIntersectionPointWithSubdivision(
+  first: CubicBezier,
+  second: CubicBezier,
+  component: CubicIntersectionDiscoveryComponent,
+  tolerance: ToleranceContext,
+  options: CubicPointRefinementOptions = {},
+): CubicPointRefinement {
+  const accelerated = refineCubicIntersectionPoint(first, second, component, tolerance);
+  if (accelerated !== null) {
+    return Object.freeze({
+      intersection: accelerated,
+      usedSubdivision: false,
+      exhausted: false,
+      visitedNodes: 0,
+    });
+  }
+
+  const firstLocal = subcurve(first, component.firstSpan.start, component.firstSpan.end);
+  const secondLocal = subcurve(second, component.secondSpan.start, component.secondSpan.end);
+  const refinementTolerance = createToleranceContext({
+    ...tolerance,
+    coordinate: Math.min(tolerance.coordinate, tolerance.intersection),
+    discovery: tolerance.intersection,
+  });
+  const discovery = discoverCubicCubicIntersections(
+    firstLocal,
+    secondLocal,
+    refinementTolerance,
+    options,
+  );
+  if (discovery.cells.length === 0) {
+    return Object.freeze({
+      intersection: null,
+      usedSubdivision: true,
+      exhausted: discovery.exhausted,
+      visitedNodes: discovery.visitedNodes,
+    });
+  }
+
+  const candidate = discovery.cells.reduce((best, cell) =>
+    cell.discrepancySquared < best.discrepancySquared ? cell : best,
+  );
+  const mapParameter = (local: number, start: number, end: number): number =>
+    start + local * (end - start);
+  const firstParameter = mapParameter(
+    candidate.representativeParameters[0],
+    component.firstSpan.start,
+    component.firstSpan.end,
+  );
+  const secondParameter = mapParameter(
+    candidate.representativeParameters[1],
+    component.secondSpan.start,
+    component.secondSpan.end,
+  );
+  const firstPoint = evaluateCubic(first, firstParameter);
+  const secondPoint = evaluateCubic(second, secondParameter);
+  const difference = subtractPoints(firstPoint, secondPoint);
+  const intersection =
+    lengthSquared(difference) <= tolerance.intersection * tolerance.intersection
+      ? pointIntersection(pairedPoint(firstParameter, firstPoint, secondParameter, secondPoint))
+      : null;
+  return Object.freeze({
+    intersection,
+    usedSubdivision: true,
+    exhausted: discovery.exhausted,
+    visitedNodes: discovery.visitedNodes,
+  });
 }
