@@ -140,6 +140,13 @@ Higher-level construction utilities sit above the kernel: circles, arcs, fillets
 
 Line-line must explicitly handle crossing, endpoint contact, parallel/disjoint, collinear/disjoint, partial/full overlap, and same/opposite overlap direction.
 
+Analytic intersection routines return topology-neutral binary records containing paired
+parameter occurrences, canonical point/error data, and paired endpoints for finite overlaps.
+They do not create path rings or store Boolean/offset classifications. The incidence-topology
+layer later lifts each paired point into an `IntersectionEvent`; overlap endpoints naturally
+become two such events. This same result shape is used for line-line and line-cubic work so
+analytic fast paths do not become a separate topology model.
+
 ## Two-pass cubic intersection search
 ### Pass 1: topology discovery
 Use wider discovery tolerance. Recursive nodes retain original parameter intervals `[tA0,tA1] × [tB0,tB1]`. Classify surviving regions as none, isolated-intersection candidate, or overlap candidate. Do not refine everything to final accuracy.
