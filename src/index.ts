@@ -7,6 +7,7 @@
  */
 export * from "./affine/index.js";
 export * from "./bezier/index.js";
+export * from "./construction/index.js";
 export * from "./intersection/index.js";
 export * from "./numeric/index.js";
 export * from "./path/index.js";
