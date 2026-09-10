@@ -75,6 +75,11 @@ parameter step sizes are never required. A component that would require both B
 directions is split at the direction change unless stationary evidence supports
 the transition.
 
+A certified spine must also obey that inferred direction link by link. Progress
+along A may pair only with nondecreasing B for same-direction correspondence or
+nonincreasing B for opposite-direction correspondence, except where the involved
+parameter intervals overlap within tolerance.
+
 Geometric cells that share a point but represent different parameter occurrences
 remain distinct. Graph connectivity must not collapse event identity into vertex
 identity.
@@ -106,7 +111,9 @@ displacement exceeds the tolerance.
 
 ## 7. Component classification
 
-- **Point:** refinement drives the component to one paired occurrence.
+- **Point:** refinement drives the component to one paired occurrence. Unresolved
+  direction alone does not establish this; an unresolved discovery component with
+  more than one cell-scale of span remains ambiguous until refinement.
 - **Overlap:** the component has a stable monotone correspondence, nontrivial
   parameter span on both curves, and certified mutual closeness.
 - **Ambiguous:** resolution is insufficient to choose point versus overlap, but

@@ -45,6 +45,24 @@ function cellsAdjacent(
   );
 }
 
+function directionallyAdjacent(
+  first: CubicIntersectionDiscoveryCell,
+  second: CubicIntersectionDiscoveryCell,
+  correspondence: "same" | "opposite",
+  tolerance: number,
+): boolean {
+  if (!cellsAdjacent(first, second, tolerance)) return false;
+  const firstA = (first.firstInterval.start + first.firstInterval.end) / 2;
+  const secondA = (second.firstInterval.start + second.firstInterval.end) / 2;
+  if (Math.abs(firstA - secondA) <= tolerance) return true;
+  const earlier = firstA < secondA ? first : second;
+  const later = firstA < secondA ? second : first;
+  if (intervalsAdjacent(earlier.secondInterval, later.secondInterval, tolerance)) return true;
+  const earlierB = (earlier.secondInterval.start + earlier.secondInterval.end) / 2;
+  const laterB = (later.secondInterval.start + later.secondInterval.end) / 2;
+  return correspondence === "same" ? laterB >= earlierB : laterB <= earlierB;
+}
+
 function maximumDifferenceControlLengthSquared(first: CubicBezier, second: CubicBezier): number {
   const firstPoints = [first.start, first.control1, first.control2, first.end];
   const secondPoints = [second.start, second.control1, second.control2, second.end];
@@ -116,6 +134,7 @@ function hasSpanningCertifiedChain(
   largestFirstCell: number,
   largestSecondCell: number,
   parameterTolerance: number,
+  correspondence: "same" | "opposite",
 ): boolean {
   const unseen = new Set(certifiedCells.map((_, index) => index));
   while (unseen.size > 0) {
@@ -126,7 +145,12 @@ function hasSpanningCertifiedChain(
       const current = indices[cursor]!;
       for (const candidate of [...unseen]) {
         if (
-          cellsAdjacent(certifiedCells[current]!, certifiedCells[candidate]!, parameterTolerance)
+          directionallyAdjacent(
+            certifiedCells[current]!,
+            certifiedCells[candidate]!,
+            correspondence,
+            parameterTolerance,
+          )
         ) {
           unseen.delete(candidate);
           indices.push(candidate);
@@ -182,9 +206,19 @@ function component(
     largestFirstCell,
     largestSecondCell,
     tolerance.parameter,
+    correspondence === "unresolved" ? "same" : correspondence,
   );
+  const collapsedToCellScale =
+    firstSpan.end - firstSpan.start <= largestFirstCell + tolerance.parameter &&
+    secondSpan.end - secondSpan.start <= largestSecondCell + tolerance.parameter;
   const kind: DiscoveryComponentKind =
-    correspondence === "unresolved" ? "point" : certifiedSpine ? "overlap" : "ambiguous";
+    correspondence === "unresolved"
+      ? collapsedToCellScale
+        ? "point"
+        : "ambiguous"
+      : certifiedSpine
+        ? "overlap"
+        : "ambiguous";
   return Object.freeze({
     cells: ordered,
     firstSpan,

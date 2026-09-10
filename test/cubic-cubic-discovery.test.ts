@@ -49,6 +49,7 @@ describe("cubic/cubic discovery components", () => {
     );
     assert.ok(components.length > 0);
     assert.ok(components.every((component) => component.kind !== "overlap"));
+    assert.ok(components.some((component) => component.kind === "ambiguous"));
   });
 });
 
