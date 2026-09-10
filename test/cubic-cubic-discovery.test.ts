@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  analyzeCubicCubicDiscovery,
   createToleranceContext,
   cubicBezier,
   discoverCubicCubicIntersections,
   point,
+  reverseCubic,
 } from "../src/index.js";
 
 const tolerance = createToleranceContext({
@@ -14,6 +16,40 @@ const tolerance = createToleranceContext({
   intersection: 1e-9,
   parameter: 1e-10,
   relative: 1e-12,
+});
+
+describe("cubic/cubic discovery components", () => {
+  it("recognizes and certifies same-direction coincidence", () => {
+    const components = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, horizontal, tolerance),
+      tolerance,
+    );
+    assert.equal(components.length, 1);
+    assert.equal(components[0]!.kind, "overlap");
+    assert.equal(components[0]!.correspondence, "same");
+    assert.ok(components[0]!.certificates.some((certificate) => certificate.certified));
+  });
+
+  it("recognizes and certifies opposite-direction coincidence", () => {
+    const components = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, reverseCubic(horizontal), tolerance),
+      tolerance,
+    );
+    assert.equal(components.length, 1);
+    assert.equal(components[0]!.kind, "overlap");
+    assert.equal(components[0]!.correspondence, "opposite");
+    assert.ok(components[0]!.certificates.some((certificate) => certificate.certified));
+  });
+
+  it("does not promote a transverse crossing to certified overlap", () => {
+    const vertical = cubicBezier(point(0, -1), point(0, -1 / 3), point(0, 1 / 3), point(0, 1));
+    const components = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, vertical, tolerance),
+      tolerance,
+    );
+    assert.ok(components.length > 0);
+    assert.ok(components.every((component) => component.kind !== "overlap"));
+  });
 });
 
 const horizontal = cubicBezier(point(-1, 0), point(-1 / 3, 0), point(1 / 3, 0), point(1, 0));

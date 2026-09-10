@@ -25,3 +25,10 @@ export type {
   DiscoveryTermination,
   ParameterInterval,
 } from "./cubic-cubic-discovery.js";
+export { analyzeCubicCubicDiscovery } from "./cubic-cubic-components.js";
+export type {
+  CertifiedDiscoveryCell,
+  CubicIntersectionDiscoveryComponent,
+  DiscoveryComponentKind,
+  DiscoveryCorrespondence,
+} from "./cubic-cubic-components.js";
