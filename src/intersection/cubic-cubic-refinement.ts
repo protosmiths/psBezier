@@ -4,8 +4,12 @@ import type { ToleranceContext } from "../numeric/index.js";
 import { createToleranceContext, cross, lengthSquared, subtractPoints } from "../numeric/index.js";
 import type { CubicIntersectionDiscoveryComponent } from "./cubic-cubic-components.js";
 import { discoverCubicCubicIntersections } from "./cubic-cubic-discovery.js";
-import type { PointIntersection } from "./intersection-types.js";
-import { pairedPoint, pointIntersection } from "./intersection-types.js";
+import type {
+  OverlapIntersection,
+  PairedIntersectionPoint,
+  PointIntersection,
+} from "./intersection-types.js";
+import { overlapIntersection, pairedPoint, pointIntersection } from "./intersection-types.js";
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
@@ -152,5 +156,78 @@ export function refineCubicIntersectionPointWithSubdivision(
     usedSubdivision: true,
     exhausted: discovery.exhausted,
     visitedNodes: discovery.visitedNodes,
+  });
+}
+
+export interface CubicOverlapRefinement {
+  readonly intersection: OverlapIntersection | null;
+  readonly certifiedCellCount: number;
+}
+
+function pairedAt(
+  first: CubicBezier,
+  second: CubicBezier,
+  firstParameter: number,
+  secondParameter: number,
+): PairedIntersectionPoint {
+  return pairedPoint(
+    firstParameter,
+    evaluateCubic(first, firstParameter),
+    secondParameter,
+    evaluateCubic(second, secondParameter),
+  );
+}
+
+/** Localize the terminal correspondences of an already-certified overlap component. */
+export function refineCubicOverlapBoundaries(
+  first: CubicBezier,
+  second: CubicBezier,
+  component: CubicIntersectionDiscoveryComponent,
+  tolerance: ToleranceContext,
+): CubicOverlapRefinement {
+  if (component.kind !== "overlap" || component.correspondence === "unresolved") {
+    return Object.freeze({ intersection: null, certifiedCellCount: 0 });
+  }
+  const certified = component.certificates.filter((value) => value.certified);
+  if (certified.length === 0) {
+    return Object.freeze({ intersection: null, certifiedCellCount: 0 });
+  }
+  const minimumA = Math.min(...certified.map((value) => value.cell.firstInterval.start));
+  const maximumA = Math.max(...certified.map((value) => value.cell.firstInterval.end));
+  const startCells = certified.filter(
+    (value) => value.cell.firstInterval.start <= minimumA + tolerance.parameter,
+  );
+  const endCells = certified.filter(
+    (value) => value.cell.firstInterval.end >= maximumA - tolerance.parameter,
+  );
+  const boundary = (value: (typeof certified)[number], start: boolean): PairedIntersectionPoint => {
+    const cell = value.cell;
+    const firstParameter = start ? cell.firstInterval.start : cell.firstInterval.end;
+    const secondParameter =
+      component.correspondence === "same"
+        ? start
+          ? cell.secondInterval.start
+          : cell.secondInterval.end
+        : start
+          ? cell.secondInterval.end
+          : cell.secondInterval.start;
+    return pairedAt(first, second, firstParameter, secondParameter);
+  };
+  const bestBoundary = (
+    values: readonly (typeof certified)[number][],
+    start: boolean,
+  ): PairedIntersectionPoint =>
+    values
+      .map((value) => boundary(value, start))
+      .reduce((best, value) => (value.errorSquared < best.errorSquared ? value : best));
+  const start = bestBoundary(startCells, true);
+  const end = bestBoundary(endCells, false);
+  const discoverySquared = tolerance.discovery * tolerance.discovery;
+  if (start.errorSquared > discoverySquared || end.errorSquared > discoverySquared) {
+    return Object.freeze({ intersection: null, certifiedCellCount: certified.length });
+  }
+  return Object.freeze({
+    intersection: overlapIntersection(start, end, component.correspondence),
+    certifiedCellCount: certified.length,
   });
 }

@@ -9,6 +9,7 @@ import {
   point,
   refineCubicIntersectionPoint,
   refineCubicIntersectionPointWithSubdivision,
+  refineCubicOverlapBoundaries,
   reverseCubic,
 } from "../src/index.js";
 
@@ -136,6 +137,64 @@ describe("cubic/cubic discovery components", () => {
     assert.ok(components.length > 0);
     assert.ok(components.every((component) => component.kind !== "overlap"));
     assert.ok(components.some((component) => component.kind === "ambiguous"));
+  });
+});
+
+describe("cubic/cubic overlap boundary refinement", () => {
+  it("localizes exact same-direction overlap endpoints", () => {
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, horizontal, tolerance),
+      tolerance,
+    )[0]!;
+    const result = refineCubicOverlapBoundaries(horizontal, horizontal, component, tolerance);
+    assert.ok(result.intersection !== null);
+    assert.equal(result.intersection.direction, "same");
+    assert.deepEqual(
+      result.intersection.start.occurrences.map((value) => value.parameter),
+      [0, 0],
+    );
+    assert.deepEqual(
+      result.intersection.end.occurrences.map((value) => value.parameter),
+      [1, 1],
+    );
+    assert.equal(result.intersection.start.errorSquared, 0);
+    assert.equal(result.intersection.end.errorSquared, 0);
+  });
+
+  it("preserves opposite endpoint correspondence", () => {
+    const reversed = reverseCubic(horizontal);
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, reversed, tolerance),
+      tolerance,
+    )[0]!;
+    const result = refineCubicOverlapBoundaries(horizontal, reversed, component, tolerance);
+    assert.ok(result.intersection !== null);
+    assert.equal(result.intersection.direction, "opposite");
+    assert.deepEqual(
+      result.intersection.start.occurrences.map((value) => value.parameter),
+      [0, 1],
+    );
+    assert.deepEqual(
+      result.intersection.end.occurrences.map((value) => value.parameter),
+      [1, 0],
+    );
+  });
+
+  it("retains discovery-tolerance displacement for tolerance-induced overlap", () => {
+    const nearby = cubicBezier(
+      point(-1, 0.0005),
+      point(-1 / 3, 0.0005),
+      point(1 / 3, 0.0005),
+      point(1, 0.0005),
+    );
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, nearby, tolerance),
+      tolerance,
+    )[0]!;
+    const result = refineCubicOverlapBoundaries(horizontal, nearby, component, tolerance);
+    assert.ok(result.intersection !== null);
+    assert.ok(result.intersection.start.errorSquared > tolerance.intersection ** 2);
+    assert.ok(result.intersection.start.errorSquared <= tolerance.discovery ** 2);
   });
 });
 

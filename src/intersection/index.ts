@@ -35,8 +35,10 @@ export type {
 export {
   refineCubicIntersectionPoint,
   refineCubicIntersectionPointWithSubdivision,
+  refineCubicOverlapBoundaries,
 } from "./cubic-cubic-refinement.js";
 export type {
   CubicPointRefinement,
   CubicPointRefinementOptions,
+  CubicOverlapRefinement,
 } from "./cubic-cubic-refinement.js";
