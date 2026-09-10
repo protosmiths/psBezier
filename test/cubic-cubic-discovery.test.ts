@@ -7,6 +7,7 @@ import {
   cubicBezier,
   discoverCubicCubicIntersections,
   point,
+  refineCubicIntersectionPoint,
   reverseCubic,
 } from "../src/index.js";
 
@@ -16,6 +17,35 @@ const tolerance = createToleranceContext({
   intersection: 1e-9,
   parameter: 1e-10,
   relative: 1e-12,
+});
+
+describe("cubic/cubic point refinement", () => {
+  it("refines a transverse candidate inside its saved parameter rectangle", () => {
+    const vertical = cubicBezier(point(0, -1), point(0, -1 / 3), point(0, 1 / 3), point(0, 1));
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, vertical, tolerance),
+      tolerance,
+    )[0]!;
+    const result = refineCubicIntersectionPoint(horizontal, vertical, component, tolerance);
+    assert.ok(result !== null);
+    assert.ok(Math.abs(result.occurrences[0].parameter - 0.5) <= tolerance.parameter);
+    assert.ok(Math.abs(result.occurrences[1].parameter - 0.5) <= tolerance.parameter);
+    assert.ok(result.errorSquared <= tolerance.intersection * tolerance.intersection);
+  });
+
+  it("does not reinterpret an ill-conditioned failed solve as geometry", () => {
+    const parallel = cubicBezier(
+      point(-1, 0.0005),
+      point(-1 / 3, 0.0005),
+      point(1 / 3, 0.0005),
+      point(1, 0.0005),
+    );
+    const component = analyzeCubicCubicDiscovery(
+      discoverCubicCubicIntersections(horizontal, parallel, tolerance),
+      tolerance,
+    )[0]!;
+    assert.equal(refineCubicIntersectionPoint(horizontal, parallel, component, tolerance), null);
+  });
 });
 
 describe("cubic/cubic discovery components", () => {
