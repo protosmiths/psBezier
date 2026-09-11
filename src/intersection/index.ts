@@ -77,6 +77,29 @@ export type {
   SegmentOverlapSeedBundle,
 } from "./intersection-topology.js";
 export { intersectPaths, intersectPathsDetailed } from "./path-intersection.js";
+export {
+  COINCIDENT,
+  INNER,
+  OUTER,
+  buildLoopPairClassification,
+  effectiveWalkState,
+  incomingEdgeClassification,
+  loopPairClassificationScope,
+  outgoingEdgeClassification,
+  validateLoopPairClassification,
+} from "./edge-classification.js";
+export type {
+  EdgeClassificationIssue,
+  EdgeClassificationIssueCode,
+  EdgeClassificationIssueSeverity,
+  EdgeClassificationValidation,
+  GeometricEdgeState,
+  LoopPairClassification,
+  LoopPairClassificationScope,
+  OrientationSign,
+  OutgoingEdgeClassification,
+  OutgoingEdgeClassificationSeed,
+} from "./edge-classification.js";
 export type {
   PathIntersectionReport,
   PathSegmentPairDiagnostic,

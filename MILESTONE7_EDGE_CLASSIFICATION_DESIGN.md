@@ -100,7 +100,7 @@ If an overlap frontier is tolerance-induced rather than an exact shared point, t
 still valid: `COINCIDENT` means indistinguishable under the discovery tolerance, not algebraically
 identical geometry.
 
-## 4. Local balance validation
+## 4. Conditional local balance validation
 
 At an ordinary event between the scope's two distinct loops, the four raw states are:
 
@@ -111,20 +111,26 @@ second incoming = state(previous second incidence)
 second outgoing = state(second incidence)
 ```
 
-When all four edges exist and are classified, validation requires:
+For a transverse crossing where the future event classifier establishes that both boundaries
+exchange inside/outside side, validation requires:
 
 ```text
 firstIn + firstOut + secondIn + secondOut == 0
 ```
 
-The invariant is checked on raw loop-relative state, before orientation or Area semantics. At an
-overlap endpoint the coincident edge contributes zero; the two noncoincident branches must still
-balance.
+The invariant is checked on raw loop-relative state, before orientation or Area semantics. It is
+not universal merely because an ordinary binary event exists. At an external tangency, for
+example, all four branches may legitimately remain `OUTER`, producing a sum of `+4`. An internal
+tangency may produce another valid nonzero pattern.
 
-Balance validation is not applicable when an event is outside the selected loop pair, has tied
-occurrences requiring higher-valence interpretation, lacks an incoming/outgoing edge on an open
-path, or has missing classifications. Such a case is reported explicitly; it is never treated as
-a valid zero sum by omission.
+Overlap frontiers have their own transition semantics: a coincident edge contributes zero, but the
+correct relationship among the remaining branches depends on the classified frontier character.
+It must not be inferred from the existence of an overlap record alone.
+
+The future local loop-side/event classifier must positively identify when the crossing invariant
+applies. It is not applicable to tangencies, contacts, unresolved event types, stationary overlap
+relationships, higher-valence interpretations, or incomplete classifications. This storage slice
+therefore does not perform zero-sum validation yet.
 
 ## 5. Interpretation validation
 
@@ -139,7 +145,8 @@ Construction/validation reports rather than repairs:
   interpretation is complete;
 - overlap-imposed edges must be `COINCIDENT`;
 - `stationary` overlaps are reported unresolved;
-- every applicable ordinary binary event must satisfy the four-edge zero-sum invariant; and
+- no event is subjected to a four-edge zero-sum check until a future classifier has positively
+  identified the applicable crossing-type transition;
 - tied/higher-valence occurrences are reported unsupported rather than silently linearized.
 
 An incomplete or invalid classification interpretation cannot be consumed by a Boolean walker.
@@ -171,7 +178,7 @@ The storage/validation slice should cover:
 
 1. immutable classifications without mutation of the arrangement;
 2. incoming state derived from the previous incidence;
-3. valid and invalid ordinary zero-sum events;
+3. retention of all tangent/contact state patterns without a premature zero-sum check;
 4. same-direction overlap constraining both forward intervals;
 5. opposite-direction overlap constraining the reversed second interval;
 6. an intervening event splitting one overlap into multiple coincident edges;

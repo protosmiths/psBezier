@@ -312,11 +312,13 @@ outgoing = `I.edgeA` - B incoming = `I.prevB.edgeB` - B outgoing =
 -   `COINCIDENT = 0`
 -   `INNER = -1`
 
-At every valid intersection:
+At an event positively identified as an ordinary transverse crossing:
 
 `A_in + A_out + B_in + B_out = 0`
 
-The states are raw geometric classifications relative to the particular
+Tangencies, contacts, overlap frontiers, unresolved events, and
+higher-valence events are not universally zero-sum and require their own
+transition validation. The states are raw geometric classifications relative to the particular
 other loop participating in the intersection. They exclude loop
 orientation and complete opposite-Area membership.
 

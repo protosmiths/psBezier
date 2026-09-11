@@ -22,13 +22,22 @@ For a pair of intersecting loops, classify each edge relative to the *other inte
 
 This raw classification does **not** include the owning loop's orientation.
 
-The local four-edge balance invariant therefore remains:
+For an ordinary transverse crossing, the local four-edge balance invariant is:
 
 `A_in + A_out + B_in + B_out = 0`
 
 using raw geometric states.
 
-This invariant is a statement about the local topology of two intersecting loops. Classifying against an entire multi-loop Area can obscure the local crossing (for example, another loop or hole can change Area-wide membership on both sides of the local intersection) and can invalidate an otherwise correct local topology test.
+This invariant is conditional on crossing-type side transitions; it is not a universal property of
+every binary event. A tangential contact may legitimately retain `OUTER` (or `INNER`) on both sides
+and have a nonzero four-edge sum. Overlap frontiers likewise require their own transition
+interpretation. The future local classifier must establish the event character before applying a
+balance rule.
+
+Where the crossing invariant applies, it is a statement about the local topology of two
+intersecting loops. Classifying against an entire multi-loop Area can obscure the local crossing
+(for example, another loop or hole can change Area-wide membership on both sides of the local
+intersection) and can invalidate an otherwise correct local topology test.
 
 ## Orientation-derived walk state
 

@@ -193,12 +193,14 @@ Reversing a loop changes its orientation sign and traversal direction. It does n
 swap the loop-relative raw `INNER` and `OUTER` classifications. Coincident state remains zero
 under either orientation.
 
-### Intersection balance invariant
-At every valid intersection:
+### Conditional intersection balance invariant
+At an event positively classified as an ordinary transverse crossing:
 
 `A_in + A_out + B_in + B_out = 0`
 
-Failure means detection, overlap interpretation, or classification is inconsistent; boolean walking must not proceed.
+Failure means detection or classification is inconsistent; boolean walking must not proceed.
+Tangencies, contacts, overlap frontiers, unresolved events, and higher-valence events have
+different local transition semantics and must not be forced through this invariant.
 
 ## Coincident sections
 Coincidence is normal geometry. A finite coincident interval is represented by two intersection events.
