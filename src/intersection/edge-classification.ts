@@ -112,12 +112,10 @@ function participatingIncidences(
   arrangement: IntersectionArrangement,
   scope: LoopPairClassificationScope,
 ): IntersectionIncidence[] {
-  return arrangement.incidences.filter((incidence) => {
-    if (incidence.path !== scope.first && incidence.path !== scope.second) return false;
-    return incidence.event.incidences.some(
-      (other) => other !== incidence && other.path === otherPath(scope, incidence.path),
-    );
-  });
+  return [
+    ...incidencesForPath(arrangement, scope.first),
+    ...incidencesForPath(arrangement, scope.second),
+  ].filter((incidence) => outgoingIntersectionEdge(incidence) !== null);
 }
 
 function incidenceAt(overlap: IntersectionOverlap, path: BezierPath, end: "start" | "end") {

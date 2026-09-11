@@ -138,4 +138,51 @@ describe("consumer-scoped edge classification", () => {
     );
     assert.equal(validateLoopPairClassification(interpretation, tolerance).valid, true);
   });
+
+  it("requires an edge introduced by a third-loop event in the scoped-loop classification", () => {
+    const first = loop(0);
+    const second = loop(2);
+    const third = loop(4);
+    const firstSecondStart = event(first, 0.25, second, 0.25);
+    const firstThird = event(first, 0.5, third, 0.5);
+    const firstSecondEnd = event(first, 0.75, second, 0.75);
+    const arrangement = buildIntersectionArrangement([
+      firstSecondStart,
+      firstThird,
+      firstSecondEnd,
+    ]);
+    const scope = loopPairClassificationScope("three-loop", first, second);
+    const scopedIncidences = arrangement.incidences.filter(
+      (incidence) => incidence.path === first || incidence.path === second,
+    );
+    const intervening = firstThird.occurrences[0];
+    const withoutThirdPartySplit = scopedIncidences
+      .filter(
+        (incidence) =>
+          incidence.path !== intervening.path || incidence.globalT !== intervening.globalT,
+      )
+      .map((incidence) => ({ incidence, state: OUTER }) as const);
+
+    const incomplete = validateLoopPairClassification(
+      buildLoopPairClassification(arrangement, scope, withoutThirdPartySplit),
+      tolerance,
+    );
+    assert.equal(incomplete.valid, true);
+    assert.equal(incomplete.complete, false);
+    assert.equal(
+      incomplete.issues.filter((value) => value.code === "missing-classification").length,
+      1,
+    );
+
+    const complete = validateLoopPairClassification(
+      buildLoopPairClassification(
+        arrangement,
+        scope,
+        scopedIncidences.map((incidence) => ({ incidence, state: OUTER })),
+      ),
+      tolerance,
+    );
+    assert.equal(complete.valid, true);
+    assert.equal(complete.complete, true);
+  });
 });

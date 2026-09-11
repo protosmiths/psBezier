@@ -42,10 +42,13 @@ interface OutgoingEdgeClassification {
 `consumer` identifies the policy that produced the interpretation, for example a future Area
 Boolean classifier. It is diagnostic provenance, not a Boolean operation or truth table.
 
-For an ordinary two-loop interpretation, an incidence on `first` is classified only relative to
-`second`, and vice versa. The classification belongs to the outgoing edge identified by the
-incidence. Incoming state at an event is obtained from that incidence's previous incidence on the
-same path. State is never installed on the incidence or arrangement itself.
+An incidence on `first` is classified only relative to `second`, and vice versa. This includes an
+incidence introduced by an event with a third path: that event still splits a real outgoing edge
+of the scoped loop, and the edge still has a state relative to the other scoped loop. The binary
+relationship that introduced a split does not control classification completeness. The
+classification belongs to the outgoing edge identified by the incidence. Incoming state at an
+event is obtained from that incidence's previous incidence on the same path. State is never
+installed on the incidence or arrangement itself.
 
 The initial interpretation supports two distinct closed paths. Same-path self-intersection
 classification and higher-valence/tied-occurrence interpretation remain separate problems.
@@ -141,8 +144,9 @@ Construction/validation reports rather than repairs:
 - `relativeTo` must be the other scope path;
 - the incidence must have an outgoing edge;
 - one scope may contain at most one state for an `(incidence, relativeTo)` identity;
-- every edge of both loops participating in the interpretation must be classified before the
-  interpretation is complete;
+- every outgoing incidence-split edge on both scoped loops must be classified before the
+  interpretation is complete, including edges beginning at incidences created by third-path
+  events;
 - overlap-imposed edges must be `COINCIDENT`;
 - `stationary` overlaps are reported unresolved;
 - no event is subjected to a four-edge zero-sum check until a future classifier has positively
@@ -187,3 +191,5 @@ The storage/validation slice should cover:
 9. missing state reported incomplete; and
 10. rejection of cross-arrangement, wrong-relative-loop, open-loop, self-loop, and tied-occurrence
     interpretations.
+11. a third-loop event splitting a scoped loop prevents completeness until its outgoing edge is
+    classified relative to the other scoped loop.
