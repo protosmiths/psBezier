@@ -28,13 +28,14 @@ export function refineCubicIntersectionPoint(
   let firstParameter = seed.representativeParameters[0];
   let secondParameter = seed.representativeParameters[1];
   const targetSquared = tolerance.intersection * tolerance.intersection;
+  let accepted: PointIntersection | null = null;
 
   for (let iteration = 0; iteration < 32; iteration += 1) {
     const firstPoint = evaluateCubic(first, firstParameter);
     const secondPoint = evaluateCubic(second, secondParameter);
     const difference = subtractPoints(firstPoint, secondPoint);
     if (lengthSquared(difference) <= targetSquared) {
-      return pointIntersection(
+      accepted = pointIntersection(
         pairedPoint(firstParameter, firstPoint, secondParameter, secondPoint),
       );
     }
@@ -47,7 +48,7 @@ export function refineCubicIntersectionPoint(
       conditioningScale === 0 ||
       determinant * determinant <= tolerance.relative * tolerance.relative * conditioningScale
     ) {
-      break;
+      return accepted;
     }
 
     const firstStep = -cross(difference, secondDerivative) / determinant;
@@ -66,7 +67,7 @@ export function refineCubicIntersectionPoint(
       Math.abs(nextFirst - firstParameter) <= tolerance.parameter &&
       Math.abs(nextSecond - secondParameter) <= tolerance.parameter
     ) {
-      break;
+      return accepted;
     }
     firstParameter = nextFirst;
     secondParameter = nextSecond;
@@ -74,7 +75,7 @@ export function refineCubicIntersectionPoint(
 
   // Newton is only an accelerator. The caller retains the unresolved component
   // for subdivision refinement when this local solve is singular or inconclusive.
-  return null;
+  return accepted;
 }
 
 export interface CubicPointRefinementOptions {
