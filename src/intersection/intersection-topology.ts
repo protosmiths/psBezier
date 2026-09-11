@@ -175,9 +175,11 @@ function segmentGlobalT(
   }
   const endpointToleranceSquared = tolerance.intersection * tolerance.intersection;
   const canonicalLocalT =
+    localT <= tolerance.parameter &&
     distanceSquared(occurrence.point, segment.start) <= endpointToleranceSquared
       ? 0
-      : distanceSquared(occurrence.point, segment.end) <= endpointToleranceSquared
+      : localT >= 1 - tolerance.parameter &&
+          distanceSquared(occurrence.point, segment.end) <= endpointToleranceSquared
         ? 1
         : localT;
   return normalizeGlobalT(segment.path, segment.index + canonicalLocalT);

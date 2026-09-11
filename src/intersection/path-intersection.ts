@@ -1,6 +1,6 @@
 import type { CubicBezier } from "../bezier/index.js";
 import type { ToleranceContext } from "../numeric/index.js";
-import { distanceSquared, point } from "../numeric/index.js";
+import { point } from "../numeric/index.js";
 import type { BezierPath, PathBezier } from "../path/index.js";
 import { pathBezierAsCubic } from "../path/index.js";
 import type { CubicIntersectionDiscoveryOptions } from "./cubic-cubic-discovery.js";
@@ -129,11 +129,11 @@ function pairDiagnostic(
   }
   const firstCubic = pathBezierAsCubic(first);
   const secondCubic = pathBezierAsCubic(second);
-  if (isCanonicalLine(firstCubic, tolerance) || isCanonicalLine(secondCubic, tolerance)) {
-    const firstGeometry = isCanonicalLine(firstCubic, tolerance)
+  if (isCanonicalLine(firstCubic) || isCanonicalLine(secondCubic)) {
+    const firstGeometry = isCanonicalLine(firstCubic)
       ? lineSegment(firstCubic.start, firstCubic.end)
       : firstCubic;
-    const secondGeometry = isCanonicalLine(secondCubic, tolerance)
+    const secondGeometry = isCanonicalLine(secondCubic)
       ? lineSegment(secondCubic.start, secondCubic.end)
       : secondCubic;
     return Object.freeze({
@@ -156,7 +156,7 @@ function pairDiagnostic(
   });
 }
 
-function isCanonicalLine(curve: CubicBezier, tolerance: ToleranceContext): boolean {
+function isCanonicalLine(curve: CubicBezier): boolean {
   const firstThird = point(
     curve.start.x + (curve.end.x - curve.start.x) / 3,
     curve.start.y + (curve.end.y - curve.start.y) / 3,
@@ -165,10 +165,11 @@ function isCanonicalLine(curve: CubicBezier, tolerance: ToleranceContext): boole
     curve.start.x + (2 * (curve.end.x - curve.start.x)) / 3,
     curve.start.y + (2 * (curve.end.y - curve.start.y)) / 3,
   );
-  const threshold = tolerance.coordinate * tolerance.coordinate;
   return (
-    distanceSquared(curve.control1, firstThird) <= threshold &&
-    distanceSquared(curve.control2, secondThird) <= threshold
+    curve.control1.x === firstThird.x &&
+    curve.control1.y === firstThird.y &&
+    curve.control2.x === secondThird.x &&
+    curve.control2.y === secondThird.y
   );
 }
 

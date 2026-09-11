@@ -6,14 +6,17 @@ import {
   buildIntersectionArrangement,
   createToleranceContext,
   evaluateCubic,
+  eventSeedFromSegmentPoint,
   incidencesForPath,
   intersectionEventSeed,
   intersectionOverlapSeed,
   intersectPathsDetailed,
   materializeIntersectionEdge,
   outgoingIntersectionEdge,
+  pathBezierAsCubic,
   pathOccurrenceSeed,
   point,
+  pairedPoint,
   validateIntersectionArrangement,
 } from "../src/index.js";
 import type { BezierPath, IntersectionEventSeed, Point } from "../src/index.js";
@@ -75,6 +78,26 @@ function seed(
 }
 
 describe("intersection incidence arrangement", () => {
+  it("does not snap an interior occurrence merely because it is geometrically near a knot", () => {
+    const firstBuilder = new BezierPathBuilder(point(0, 0));
+    firstBuilder.appendCubic(point(1e-10, 0), point(2e-10, 0), point(3e-10, 0));
+    const secondBuilder = new BezierPathBuilder(point(0, 0));
+    secondBuilder.appendCubic(point(1e-10, 0), point(2e-10, 0), point(3e-10, 0));
+    const first = firstBuilder.build();
+    const second = secondBuilder.build();
+    const localT = 0.35;
+    const location = evaluateCubic(pathBezierAsCubic(first.segments[0]!), localT);
+    const event = eventSeedFromSegmentPoint(
+      first.segments[0]!,
+      second.segments[0]!,
+      pairedPoint(localT, location, localT, location),
+      tolerance,
+    );
+
+    assert.equal(event.occurrences[0].globalT, localT);
+    assert.equal(event.occurrences[1].globalT, localT);
+  });
+
   it("orders ordinary binary incidences independently on each closed path", () => {
     const first = square();
     const second = square();
@@ -205,6 +228,21 @@ describe("overlap and unresolved vertex topology", () => {
 });
 
 describe("whole-path intersection lifting", () => {
+  it("does not substitute analytic line parameters for merely near-canonical cubics", () => {
+    const first = new BezierPathBuilder(point(-1, 0))
+      .appendCubic(point(-1 / 3, 5e-9), point(1 / 3, -5e-9), point(1, 0))
+      .build();
+    const second = new BezierPathBuilder(point(0, -1))
+      .appendCubic(point(5e-9, -1 / 3), point(-5e-9, 1 / 3), point(0, 1))
+      .build();
+
+    const report = intersectPathsDetailed(first, second, tolerance);
+
+    assert.equal(report.complete, true);
+    assert.equal(report.arrangement!.events.length, 1);
+    assert.notEqual(report.pairs[0]!.cubicReport, null);
+  });
+
   it("deduplicates one knot event discovered by four adjacent segment pairs", () => {
     const firstBuilder = new BezierPathBuilder(point(0, 0));
     lineTo(firstBuilder, point(0, 0), point(1, 0));
