@@ -204,7 +204,9 @@ This design intentionally does not decide:
 - whether coincident binary events later group into `IntersectionVertex` values;
 - how one shared path occurrence participates in several binary relationships without zero-length pseudo-edges;
 - final self-intersection adjacency exclusions during whole-path discovery;
-- raw edge classification storage for a particular arrangement interpretation;
+- the algorithm that computes noncoincident raw edge classification for a particular loop pair
+  (the storage and validation contract is specified separately in
+  `MILESTONE7_EDGE_CLASSIFICATION_DESIGN.md`);
 - Area membership and Boolean truth tables; or
 - offset-specific retention.
 

@@ -142,6 +142,11 @@ incidence topology can be reused by Boolean and offset operations.
 
 Build validation tools before any boolean walker or offset regularizer.
 
+The consumer-scoped storage, overlap constraints, and local balance-validation contract are
+specified in `MILESTONE7_EDGE_CLASSIFICATION_DESIGN.md`. Implement that interpretation layer
+without mutating the base arrangement. Design and approve the geometric loop-side classifier
+separately before computing noncoincident states.
+
 ## Milestone 7A — Boundary reconstruction infrastructure
 Design/implement a reusable boundary assembly mechanism only after incidence topology is stable.
 
