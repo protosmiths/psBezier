@@ -1,7 +1,13 @@
 import type { CubicBezier } from "../bezier/index.js";
 import { cubicDerivative, evaluateCubic, subcurve } from "../bezier/index.js";
 import type { ToleranceContext } from "../numeric/index.js";
-import { createToleranceContext, cross, lengthSquared, subtractPoints } from "../numeric/index.js";
+import {
+  createToleranceContext,
+  cross,
+  distanceSquared,
+  lengthSquared,
+  subtractPoints,
+} from "../numeric/index.js";
 import type { CubicIntersectionDiscoveryComponent } from "./cubic-cubic-components.js";
 import { discoverCubicCubicIntersections } from "./cubic-cubic-discovery.js";
 import type {
@@ -67,7 +73,11 @@ export function refineCubicIntersectionPoint(
       Math.abs(nextFirst - firstParameter) <= tolerance.parameter &&
       Math.abs(nextSecond - secondParameter) <= tolerance.parameter
     ) {
-      return accepted;
+      const nextFirstPoint = evaluateCubic(first, nextFirst);
+      const nextSecondPoint = evaluateCubic(second, nextSecond);
+      return distanceSquared(nextFirstPoint, nextSecondPoint) <= targetSquared
+        ? pointIntersection(pairedPoint(nextFirst, nextFirstPoint, nextSecond, nextSecondPoint))
+        : accepted;
     }
     firstParameter = nextFirst;
     secondParameter = nextSecond;

@@ -9,6 +9,7 @@ import {
   incidencesForPath,
   intersectionEventSeed,
   intersectionOverlapSeed,
+  intersectPathsDetailed,
   materializeIntersectionEdge,
   outgoingIntersectionEdge,
   pathOccurrenceSeed,
@@ -200,5 +201,81 @@ describe("overlap and unresolved vertex topology", () => {
     const validation = validateIntersectionArrangement(arrangement, tolerance);
     assert.equal(validation.valid, false);
     assert.ok(validation.issues.some((value) => value.code === "same-path-same-occurrence"));
+  });
+});
+
+describe("whole-path intersection lifting", () => {
+  it("deduplicates one knot event discovered by four adjacent segment pairs", () => {
+    const firstBuilder = new BezierPathBuilder(point(0, 0));
+    lineTo(firstBuilder, point(0, 0), point(1, 0));
+    lineTo(firstBuilder, point(1, 0), point(2, 0));
+    const secondBuilder = new BezierPathBuilder(point(1, -1));
+    lineTo(secondBuilder, point(1, -1), point(1, 0));
+    lineTo(secondBuilder, point(1, 0), point(1, 1));
+
+    const report = intersectPathsDetailed(firstBuilder.build(), secondBuilder.build(), tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.arrangement!.events.length, 1);
+    for (const incidence of report.arrangement!.events[0]!.incidences) {
+      assert.ok(Math.abs(incidence.globalT - 1) <= tolerance.parameter);
+    }
+  });
+
+  it("deduplicates a closed-seam knot without merging another path occurrence", () => {
+    const closed = square();
+    const lineBuilder = new BezierPathBuilder(point(0, -1));
+    lineTo(lineBuilder, point(0, -1), point(0, 0));
+    const report = intersectPathsDetailed(closed, lineBuilder.build(), tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.arrangement!.events.length, 1);
+    assert.equal(report.arrangement!.events[0]!.incidences[0].globalT, 0);
+    assert.equal(report.arrangement!.events[0]!.incidences[1].globalT, 1);
+  });
+
+  it("excludes structural self-neighbors but discovers nonadjacent crossings", () => {
+    const start = point(0, 0);
+    const builder = new BezierPathBuilder(start);
+    let current = lineTo(builder, start, point(1, 1));
+    current = lineTo(builder, current, point(0, 1));
+    current = lineTo(builder, current, point(1, 0));
+    lineTo(builder, current, start);
+    const bowtie = builder.close().build();
+    const report = intersectPathsDetailed(bowtie, bowtie, tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.arrangement!.events.length, 1);
+    assert.deepEqual(
+      report.arrangement!.events[0]!.incidences.map((incidence) => incidence.globalT),
+      [0.5, 2.5],
+    );
+    const seamPair = report.pairs.find(
+      (pair) => pair.first.index === 0 && pair.second.index === bowtie.segmentCount - 1,
+    );
+    assert.equal(seamPair?.excluded, "adjacent-segments");
+  });
+
+  it("does not publish an arrangement from incomplete segment-pair discovery", () => {
+    const first = new BezierPathBuilder(point(0, 0))
+      .appendCubic(point(0, 1), point(1, 1), point(1, 0))
+      .build();
+    const second = new BezierPathBuilder(point(0, 0))
+      .appendCubic(point(1, 0), point(0, 1), point(1, 1))
+      .build();
+    const report = intersectPathsDetailed(first, second, tolerance, { maxCells: 1 });
+    assert.equal(report.complete, false);
+    assert.equal(report.arrangement, null);
+    assert.ok(report.pairs.some((pair) => pair.cubicReport?.discovery.exhausted));
+  });
+
+  it("shares knot events between consecutive finite overlap records", () => {
+    const firstBuilder = new BezierPathBuilder(point(0, 0));
+    lineTo(firstBuilder, point(0, 0), point(2, 0));
+    const secondBuilder = new BezierPathBuilder(point(0, 0));
+    lineTo(secondBuilder, point(0, 0), point(1, 0));
+    lineTo(secondBuilder, point(1, 0), point(2, 0));
+    const report = intersectPathsDetailed(firstBuilder.build(), secondBuilder.build(), tolerance);
+    assert.equal(report.complete, true);
+    assert.equal(report.arrangement!.overlaps.length, 2);
+    assert.equal(report.arrangement!.events.length, 3);
+    assert.equal(report.arrangement!.overlaps[0]!.end, report.arrangement!.overlaps[1]!.start);
   });
 });

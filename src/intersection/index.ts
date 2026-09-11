@@ -76,3 +76,9 @@ export type {
   PathOccurrenceSeed,
   SegmentOverlapSeedBundle,
 } from "./intersection-topology.js";
+export { intersectPaths, intersectPathsDetailed } from "./path-intersection.js";
+export type {
+  PathIntersectionReport,
+  PathSegmentPairDiagnostic,
+  PathSegmentPairExclusion,
+} from "./path-intersection.js";

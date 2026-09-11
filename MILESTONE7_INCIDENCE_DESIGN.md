@@ -141,9 +141,21 @@ eventSeedFromSegmentPoint(firstSegment, secondSegment, pairedPoint)
 overlapSeedFromSegmentResult(firstSegment, secondSegment, overlap)
 ```
 
-Local cubic parameters map to path globalT as `segment.index + localT`, followed by canonical path normalization. A point result yields one event seed. An overlap result yields two event seeds plus an overlap seed relating them.
+Local cubic parameters map to path globalT as `segment.index + localT`, followed by structural knot canonicalization and canonical path normalization. When an occurrence evaluates within intersection tolerance of its own segment start or end, it is lifted to that exact knot before parameter-pair deduplication. A point result yields one event seed. An overlap result yields two event seeds plus an overlap seed relating them.
 
 The lifting helper does not discover all path/path intersections and does not deduplicate results from adjacent segment pairs. Whole-path orchestration and trivial self-adjacency exclusion are separate work within the milestone after the base arrangement is validated.
+
+### Whole-path orchestration
+
+`intersectPathsDetailed(first, second, tolerance)` examines every eligible segment pair, retains pair-level completeness diagnostics, and publishes an arrangement only when every included search completes. The convenience `intersectPaths` rejects incomplete results rather than returning partial topology.
+
+For two different paths, event deduplication requires agreement within parameter tolerance for both canonical `(path, globalT)` occurrences in the same ordered binary path relationship. For self-intersection, segment pairs are considered once in structural order. A segment is excluded against itself and its immediate `prev`/`next`; closed-path first/last adjacency is therefore excluded naturally. Nonadjacent segments remain eligible even when they share a knot-like coordinate.
+
+Before parameter-pair deduplication, segment endpoint occurrences are structurally canonicalized as described above. This collapses the same physical knot event discovered from adjacent segment pairs, including the closed seam, without merging unrelated binary events at the same XY location.
+
+Canonical line cubics whose controls occur at exactly the one-third/two-third chord positions within coordinate tolerance use the analytic line dispatcher. This restriction preserves the cubic parameter as the line parameter. Merely collinear cubics may have nonlinear or backtracking parameterization and must not be converted to endpoint line segments without an explicit parameter mapping.
+
+Adjacent overlap records share their canonical endpoint event when both path occurrences agree. Identical overlap records are deduplicated by endpoint event identity and direction; overlap relationships are never merged by XY proximity.
 
 ## 8. Structural validation
 

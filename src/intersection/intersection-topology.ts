@@ -164,21 +164,34 @@ export interface SegmentOverlapSeedBundle {
   readonly overlap: IntersectionOverlapSeed;
 }
 
-function segmentGlobalT(segment: PathBezier, localT: number): number {
+function segmentGlobalT(
+  segment: PathBezier,
+  occurrence: PairedIntersectionPoint["occurrences"][number],
+  tolerance: ToleranceContext,
+): number {
+  const localT = occurrence.parameter;
   if (!Number.isFinite(localT) || localT < 0 || localT > 1) {
     throw new RangeError("local intersection parameter must be in [0, 1]");
   }
-  return normalizeGlobalT(segment.path, segment.index + localT);
+  const endpointToleranceSquared = tolerance.intersection * tolerance.intersection;
+  const canonicalLocalT =
+    distanceSquared(occurrence.point, segment.start) <= endpointToleranceSquared
+      ? 0
+      : distanceSquared(occurrence.point, segment.end) <= endpointToleranceSquared
+        ? 1
+        : localT;
+  return normalizeGlobalT(segment.path, segment.index + canonicalLocalT);
 }
 
 export function eventSeedFromSegmentPoint(
   first: PathBezier,
   second: PathBezier,
   paired: PairedIntersectionPoint,
+  tolerance: ToleranceContext,
 ): IntersectionEventSeed {
   return intersectionEventSeed(
-    pathOccurrenceSeed(first.path, segmentGlobalT(first, paired.occurrences[0].parameter)),
-    pathOccurrenceSeed(second.path, segmentGlobalT(second, paired.occurrences[1].parameter)),
+    pathOccurrenceSeed(first.path, segmentGlobalT(first, paired.occurrences[0], tolerance)),
+    pathOccurrenceSeed(second.path, segmentGlobalT(second, paired.occurrences[1], tolerance)),
   );
 }
 
@@ -186,9 +199,10 @@ export function overlapSeedFromSegmentResult(
   first: PathBezier,
   second: PathBezier,
   overlap: OverlapIntersection,
+  tolerance: ToleranceContext,
 ): SegmentOverlapSeedBundle {
-  const start = eventSeedFromSegmentPoint(first, second, overlap.start);
-  const end = eventSeedFromSegmentPoint(first, second, overlap.end);
+  const start = eventSeedFromSegmentPoint(first, second, overlap.start, tolerance);
+  const end = eventSeedFromSegmentPoint(first, second, overlap.end, tolerance);
   const events: readonly [IntersectionEventSeed, IntersectionEventSeed] = Object.freeze([
     start,
     end,
