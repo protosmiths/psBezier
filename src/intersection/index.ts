@@ -49,3 +49,30 @@ export type {
   CubicOverlapRefinement,
   OverlapBoundaryKind,
 } from "./cubic-cubic-refinement.js";
+export {
+  buildIntersectionArrangement,
+  eventSeedFromSegmentPoint,
+  incidencesForPath,
+  intersectionEventSeed,
+  intersectionOverlapSeed,
+  materializeIntersectionEdge,
+  outgoingIntersectionEdge,
+  overlapSeedFromSegmentResult,
+  pathOccurrenceSeed,
+  validateIntersectionArrangement,
+} from "./intersection-topology.js";
+export type {
+  IntersectionArrangement,
+  IntersectionEdge,
+  IntersectionEvent,
+  IntersectionEventSeed,
+  IntersectionIncidence,
+  IntersectionOverlap,
+  IntersectionOverlapSeed,
+  IntersectionTopologyIssue,
+  IntersectionTopologyIssueCode,
+  IntersectionTopologyIssueSeverity,
+  IntersectionTopologyValidation,
+  PathOccurrenceSeed,
+  SegmentOverlapSeedBundle,
+} from "./intersection-topology.js";

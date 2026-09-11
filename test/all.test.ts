@@ -5,5 +5,6 @@ import "./cubic-cubic-discovery.test.js";
 import "./cubic-cubic-metamorphic.test.js";
 import "./foundation.test.js";
 import "./intersection.test.js";
+import "./intersection-topology.test.js";
 import "./numeric.test.js";
 import "./path.test.js";
