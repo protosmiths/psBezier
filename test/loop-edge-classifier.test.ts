@@ -7,6 +7,7 @@ import {
   INNER,
   OUTER,
   classifyLoopPairEdgesDetailed,
+  characterizeLoopPairEvents,
   createToleranceContext,
   intersectPathsDetailed,
   loopPairClassificationScope,
@@ -62,6 +63,16 @@ describe("incidence-edge loop-side classification", () => {
       true,
     );
     assert.deepEqual(new Set(report.edges.map((edge) => edge.state)), new Set([INNER, OUTER]));
+    const events = characterizeLoopPairEvents(report.interpretation, tolerance);
+    assert.equal(events.complete, true);
+    assert.equal(
+      events.events.every((event) => event.kind === "transverse"),
+      true,
+    );
+    assert.equal(
+      events.events.every((event) => event.balanceValid === true),
+      true,
+    );
   });
 
   it("assigns exact coincident state to a completely shared boundary without sampling", () => {
@@ -83,6 +94,12 @@ describe("incidence-edge loop-side classification", () => {
       report.edges.every((edge) => edge.samples.length === 0),
       true,
     );
+    const events = characterizeLoopPairEvents(report.interpretation, tolerance);
+    assert.equal(events.complete, true);
+    assert.equal(
+      events.events.every((event) => event.kind === "overlap-frontier"),
+      true,
+    );
   });
 
   it("keeps the interpretation incomplete when no candidate ray is usable", () => {
@@ -98,5 +115,23 @@ describe("incidence-edge loop-side classification", () => {
     assert.equal(report.complete, false);
     assert.ok(report.edges.some((edge) => edge.status === "no-safe-edge-sample"));
     assert.ok(report.validation.issues.some((issue) => issue.code === "missing-classification"));
+  });
+
+  it("characterizes an external tangency without applying transverse balance", () => {
+    const first = squareAt(0, 0);
+    const second = squareAt(1, 1);
+    const arrangement = intersectPathsDetailed(first, second, tolerance).arrangement!;
+    const classification = classifyLoopPairEdgesDetailed(
+      arrangement,
+      loopPairClassificationScope("contact", first, second),
+      tolerance,
+    );
+    assert.equal(classification.complete, true);
+    const events = characterizeLoopPairEvents(classification.interpretation, tolerance);
+    assert.equal(events.complete, true);
+    assert.equal(events.events.length, 1);
+    assert.equal(events.events[0]!.kind, "contact");
+    assert.equal(events.events[0]!.zeroSum, null);
+    assert.equal(events.events[0]!.balanceValid, null);
   });
 });

@@ -90,6 +90,13 @@ export {
   scopedLoopIncidences,
   validateLoopPairClassification,
 } from "./edge-classification.js";
+export { characterizeLoopPairEvents } from "./event-characterization.js";
+export type {
+  IncidenceStateTransition,
+  LoopPairEventCharacterization,
+  LoopPairEventCharacterizationReport,
+  LoopPairEventKind,
+} from "./event-characterization.js";
 export type {
   EdgeClassificationIssue,
   EdgeClassificationIssueCode,
