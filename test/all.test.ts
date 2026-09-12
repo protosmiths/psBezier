@@ -1,4 +1,5 @@
 import "./affine.test.js";
+import "./boolean-transition-graph.test.js";
 import "./cubic-bezier.test.js";
 import "./construction.test.js";
 import "./containment.test.js";
