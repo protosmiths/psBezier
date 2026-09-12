@@ -75,31 +75,67 @@ A contact at which the selected boundary remains on the same source loop does no
 switch. It must not manufacture an output branch merely because two geometric events share a
 point.
 
-The transition layer establishes whether the selected incoming interval continues uniquely to the
-selected outgoing interval. If no boundary-changing transition is needed, traversal continues on
-the owning path. If the local topology is unresolved, the Boolean operation is incomplete.
+Because a validated contact retains the same raw state on both sides of each participating loop,
+selection also remains constant across that incidence. A selected incoming edge therefore
+continues through the contact to the outgoing edge on the same source loop. There is no loop
+switch.
+
+This handles external touching solids naturally: union may retain both loops as two cycles touching
+at one geometric point, while intersection may retain neither because their common set has no
+Area. The shared coordinate does not merge their distinct directed-exit identities.
+
+If the event is not positively characterized as a contact, or either same-path continuation is not
+selected consistently, the transition is unresolved and blocks walking.
 
 ## Coincident intervals
 
-Coincident edges cannot be selected solely from the value zero. Their policy must also consume
-same- versus opposite-direction overlap correspondence, loop orientations and Area roles, the
-requested operation, and deterministic ownership so one geometric boundary is not emitted twice.
+Coincident edges cannot be selected solely from the value zero. Treat each nonstationary overlap as
+a corridor between two frontier events. First select the ordinary noncoincident result edges at
+both frontiers from the operation's positive/negative effective-state rule. Then ask whether those
+selected edges leave an incoming/outgoing degree deficit that only traversal of the overlap
+corridor can satisfy.
 
-Before implementation, a complete coincidence transition table must be approved for:
+Each source traversal of the overlap is a candidate directed corridor. A same-direction overlap
+provides two geometrically equivalent candidates in the same direction. An opposite-direction
+overlap provides candidates in opposite directions. A candidate comprises every incidence-split
+edge tiled through that source interval, including splits introduced by unrelated events.
 
-- same-direction identical boundaries;
-- opposite-direction boundaries that cancel;
-- partial same-direction overlap;
-- partial opposite-direction overlap;
-- overlap frontiers adjacent to `INNER`/`OUTER` edges;
-- subtraction expressed by reversing the subtracting contribution.
+Choose overlap traversal by graph constraints:
 
-Coincident ownership is representation policy, not geometric truth. Choosing one source copy must
-be deterministic and input-swap invariant at the resulting geometric level.
+1. preserve every already-selected noncoincident transition at both frontiers;
+2. give every result-bearing frontier exactly one incoming and one outgoing transition;
+3. retain no coincident corridor when the selected noncoincident edges already balance;
+4. when one geometrically equivalent source copy is required, retain exactly one deterministic
+   owner;
+5. reject the interpretation if zero candidates or multiple geometrically different candidates
+   satisfy the constraints.
+
+This derives coincidence from the boundary that must be connected rather than assigning an
+operation meaning to `COINCIDENT = 0`.
+
+Consequences include:
+
+- adjacent positive solids sharing an opposite-direction edge need no coincident corridor for
+  union; the common edge is internal;
+- their Area intersection has no two-dimensional boundary and also retains no corridor;
+- identical same-direction boundaries require one owned copy for both union and intersection;
+- a partial overlap is retained only when it is the unique connection between selected
+  noncoincident branches at its two frontiers.
+
+When two candidates are geometrically equivalent and have the required direction, ownership is a
+representation tie-break. Initially prefer the scoped first loop. Swapping inputs may change source
+provenance but must not change output geometry, traversal orientation, or cycle count.
+
+Full-loop coincidence has no noncoincident frontier ports. It must be diagnosed separately as a
+zero-transition case: same directed material retains one deterministic copy; oppositely directed
+signed contributions require the later Area algebra to decide cancellation. It must not be forced
+through the partial-corridor rule.
 
 ## Directed transition graph
 
 The binary walk operates on result-bearing directed exits, not merely on geometric event points.
+The identity of a directed exit is its owning incidence in the operation interpretation; geometric
+coordinate is never its visited key.
 For each approved operation:
 
 1. transition policy maps a validated incoming result edge at an event to exactly one outgoing
@@ -149,13 +185,19 @@ opposite Area.
 
 ## Design gate before implementation
 
-The noncoincident transverse transition rule is resolved. Complete walker implementation waits for
-approval of:
+The proposed transition model is now:
 
-1. the coincidence transition/ownership table;
-2. contact continuation rules expressed against actual incidence topology;
-3. result-bearing directed-exit and visited-identity representation;
-4. failure diagnostics for incomplete or invalid transitions.
+- transverse: select by effective sign and require a unique exit;
+- contact: continue on the same selected source loop;
+- partial overlap: add at most one directed coincident corridor only when required to balance the
+  selected frontier transitions;
+- unresolved/higher-valence: block;
+- visited identity: owning incidence, never XY point.
+
+Before coding, validate this model with explicit graph fixtures for same/opposite partial overlaps,
+identical loops, adjacent touching solids, overlap corridors split by a third event, input swap, and
+subtraction-by-reversal. Full-loop coincidence and zero-intersection cases remain explicit inputs to
+the later Area policy rather than ordinary event walks.
 
 Self-intersection cycle decomposition and consumer-specific regularization remain separate future
 designs and do not block a two-simple-loop noncoincident transition prototype.
