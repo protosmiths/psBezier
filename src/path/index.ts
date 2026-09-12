@@ -1,9 +1,11 @@
 export {
   BezierPathBuilder,
   evaluatePath,
+  evaluatePathIntervalAtFraction,
   extractPathInterval,
   locateGlobalT,
   normalizeGlobalT,
+  pathIntervalGlobalTAtFraction,
   pathBezierAsCubic,
 } from "./bezier-path.js";
 export type {

@@ -5,9 +5,11 @@ import {
   BezierPathBuilder,
   evaluateCubic,
   evaluatePath,
+  evaluatePathIntervalAtFraction,
   extractPathInterval,
   locateGlobalT,
   normalizeGlobalT,
+  pathIntervalGlobalTAtFraction,
   pathBezierAsCubic,
   point,
 } from "../src/index.js";
@@ -167,6 +169,42 @@ describe("globalT canonical addressing", () => {
 });
 
 describe("directed path interval extraction", () => {
+  it("maps fractions through a multi-segment source interval", () => {
+    const path = openHorizontalPath();
+    assert.equal(pathIntervalGlobalTAtFraction(path, 0.25, 2.75, 0.5), 1.5);
+    assertPointNear(evaluatePathIntervalAtFraction(path, 0.25, 2.75, 0.5), point(1.5, 0));
+  });
+
+  it("maps fractions across a closed seam and around an explicit full cycle", () => {
+    const path = closedTrianglePath();
+    assert.equal(pathIntervalGlobalTAtFraction(path, 2.5, 0.5, 0.5), 0);
+    assertPointNear(evaluatePathIntervalAtFraction(path, 2.5, 0.5, 0.5), evaluatePath(path, 0));
+    assert.equal(pathIntervalGlobalTAtFraction(path, 0.5, 0.5, 0.5, { fullCycle: true }), 2);
+  });
+
+  it("supports reverse and very short directed intervals without leaving the source path", () => {
+    const open = openHorizontalPath();
+    assert.equal(pathIntervalGlobalTAtFraction(open, 2.5, 0.5, 0.25, { direction: "reverse" }), 2);
+    const closed = closedTrianglePath();
+    const from = 1.25;
+    const to = from + 1e-12;
+    const sampledT = pathIntervalGlobalTAtFraction(closed, from, to, 0.5);
+    assert.ok(sampledT > from && sampledT < to);
+    assertPointNear(
+      evaluatePathIntervalAtFraction(closed, from, to, 0.5),
+      evaluatePath(closed, sampledT),
+    );
+  });
+
+  it("rejects invalid fractions and contradictory open traversal", () => {
+    const path = openHorizontalPath();
+    assert.throws(() => pathIntervalGlobalTAtFraction(path, 0, 1, -0.1), RangeError);
+    assert.throws(
+      () => pathIntervalGlobalTAtFraction(path, 0, 1, 0.5, { direction: "reverse" }),
+      RangeError,
+    );
+  });
+
   it("extracts an open interval without exposing crossed segment bookkeeping", () => {
     const path = openHorizontalPath();
     const pieces = extractPathInterval(path, 0.5, 2.5);

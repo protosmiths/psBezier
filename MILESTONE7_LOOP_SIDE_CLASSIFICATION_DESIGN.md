@@ -55,6 +55,12 @@ For a query point `P`:
 - established lower bound `> tolerance.coordinate` permits containment rays;
 - an incomplete distance result spanning the threshold means `UNRESOLVED`.
 
+Strict boundary identity and edge-sample confidence use different thresholds. A point beyond
+`tolerance.coordinate` is not `BOUNDARY`, but an edge sample inside a wider configurable
+classification safety margin is cautionary and requires additional samples. The initial
+implementation may default that margin from `tolerance.discovery`, but it must be named policy—not
+an unexplained multiplier—and retained in diagnostics.
+
 An edge sample near B may indicate a missing contact or tolerance-coincident interval, but proximity
 alone does not prove that the curves intersect. It triggers resampling/diagnostics rather than a
 fabricated event.

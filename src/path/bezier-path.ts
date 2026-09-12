@@ -188,6 +188,61 @@ export interface PathIntervalOptions {
   readonly fullCycle?: boolean;
 }
 
+function unwrappedIntervalEndpoints(
+  path: BezierPath,
+  fromGlobalT: number,
+  toGlobalT: number,
+  options: PathIntervalOptions,
+): readonly [number, number] {
+  const direction = options.direction ?? "forward";
+  const fullCycle = options.fullCycle ?? false;
+  const count = path.segmentCount;
+  const from = normalizeGlobalT(path, fromGlobalT);
+  let to = normalizeGlobalT(path, toGlobalT);
+
+  if (!path.isClosed) {
+    if (fullCycle) throw new RangeError("fullCycle is valid only for a closed path");
+    if (direction === "forward" ? to < from : to > from) {
+      throw new RangeError(`${direction} interval on an open path has contradictory endpoints`);
+    }
+  } else if (direction === "forward") {
+    if (to < from || (to === from && fullCycle)) to += count;
+  } else if (to > from || (to === from && fullCycle)) {
+    to -= count;
+  }
+
+  return Object.freeze([from, to]);
+}
+
+/** Map a traversal fraction to the canonical globalT on a directed path interval. */
+export function pathIntervalGlobalTAtFraction(
+  path: BezierPath,
+  fromGlobalT: number,
+  toGlobalT: number,
+  fraction: number,
+  options: PathIntervalOptions = {},
+): number {
+  if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1) {
+    throw new RangeError("path interval fraction must be in [0, 1]");
+  }
+  const [from, to] = unwrappedIntervalEndpoints(path, fromGlobalT, toGlobalT, options);
+  return normalizeGlobalT(path, from + (to - from) * fraction);
+}
+
+/** Evaluate a point on a directed path interval without materializing its cubic pieces. */
+export function evaluatePathIntervalAtFraction(
+  path: BezierPath,
+  fromGlobalT: number,
+  toGlobalT: number,
+  fraction: number,
+  options: PathIntervalOptions = {},
+): Point {
+  return evaluatePath(
+    path,
+    pathIntervalGlobalTAtFraction(path, fromGlobalT, toGlobalT, fraction, options),
+  );
+}
+
 function extractForward(
   path: BezierPath,
   startGlobalT: number,
