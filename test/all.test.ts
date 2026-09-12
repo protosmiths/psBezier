@@ -9,6 +9,7 @@ import "./edge-classification.test.js";
 import "./foundation.test.js";
 import "./intersection.test.js";
 import "./loop-edge-classifier.test.js";
+import "./milestone7-metamorphic.test.js";
 import "./intersection-topology.test.js";
 import "./numeric.test.js";
 import "./path.test.js";
