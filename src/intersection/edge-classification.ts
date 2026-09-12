@@ -108,7 +108,7 @@ export interface EdgeClassificationValidation {
   readonly issues: readonly EdgeClassificationIssue[];
 }
 
-function participatingIncidences(
+export function scopedLoopIncidences(
   arrangement: IntersectionArrangement,
   scope: LoopPairClassificationScope,
 ): IntersectionIncidence[] {
@@ -138,7 +138,7 @@ function directedIntervalIncidences(
   return result;
 }
 
-function overlapConstrainedIncidences(
+export function overlapConstrainedIncidences(
   overlap: IntersectionOverlap,
   scope: LoopPairClassificationScope,
 ): IntersectionIncidence[] | null {
@@ -190,7 +190,7 @@ export function validateLoopPairClassification(
     seen.add(value.incidence);
   }
 
-  const required = participatingIncidences(arrangement, scope);
+  const required = scopedLoopIncidences(arrangement, scope);
   for (const incidence of required)
     if (!seen.has(incidence))
       add("notice", "missing-classification", "participating incidence is not classified");

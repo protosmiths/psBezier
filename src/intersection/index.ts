@@ -86,6 +86,8 @@ export {
   incomingEdgeClassification,
   loopPairClassificationScope,
   outgoingEdgeClassification,
+  overlapConstrainedIncidences,
+  scopedLoopIncidences,
   validateLoopPairClassification,
 } from "./edge-classification.js";
 export type {

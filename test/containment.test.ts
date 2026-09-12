@@ -83,6 +83,18 @@ describe("point relative to a closed loop", () => {
     assert.equal(report.relation, "outside");
   });
 
+  it("does not reinterpret a clean crossing as a ray endpoint when the ray is lengthened", () => {
+    const path = square();
+    const query = point(0.5, 0.5);
+    for (const x of [10, 1_000, 1_000_000]) {
+      const report = pointLoopRelationDetailed(path, query, tolerance, {
+        externalPoints: [point(x, 0.7)],
+      });
+      assert.equal(report.attempts[0]!.status, "accepted");
+      assert.equal(report.relation, "inside");
+    }
+  });
+
   it("rejects open paths", () => {
     const open = new BezierPathBuilder(point(0, 0))
       .appendCubic(point(1 / 3, 0), point(2 / 3, 0), point(1, 0))

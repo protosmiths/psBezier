@@ -8,6 +8,7 @@ import "./distance.test.js";
 import "./edge-classification.test.js";
 import "./foundation.test.js";
 import "./intersection.test.js";
+import "./loop-edge-classifier.test.js";
 import "./intersection-topology.test.js";
 import "./numeric.test.js";
 import "./path.test.js";

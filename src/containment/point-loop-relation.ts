@@ -1,6 +1,7 @@
 import { cubicBoundingBox, cubicDerivative } from "../bezier/index.js";
 import {
   cross,
+  distanceSquared,
   lengthSquared,
   point,
   subtractPoints,
@@ -13,7 +14,8 @@ import {
   type PointPathDistanceOptions,
   type PointPathDistanceReport,
 } from "../distance/index.js";
-import { intersectAnalytic, lineSegment } from "../intersection/index.js";
+import { intersectAnalytic } from "../intersection/dispatch.js";
+import { lineSegment } from "../intersection/intersection-types.js";
 
 export type PointLoopRelation = "inside" | "outside" | "boundary" | "unresolved";
 export type ContainmentRayStatus =
@@ -101,9 +103,13 @@ function attemptRay(
     for (const intersection of intersectAnalytic(ray, curve, tolerance)) {
       if (intersection.kind === "overlap")
         return Object.freeze({ externalPoint, status: "overlap", winding: null, crossingCount });
-      const rayT = intersection.occurrences[0].parameter;
+      const rayPoint = intersection.occurrences[0].point;
       const curveT = intersection.occurrences[1].parameter;
-      if (rayT <= tolerance.parameter || rayT >= 1 - tolerance.parameter)
+      const endpointToleranceSquared = tolerance.coordinate * tolerance.coordinate;
+      if (
+        distanceSquared(rayPoint, query) <= endpointToleranceSquared ||
+        distanceSquared(rayPoint, externalPoint) <= endpointToleranceSquared
+      )
         return Object.freeze({
           externalPoint,
           status: "ray-endpoint",
