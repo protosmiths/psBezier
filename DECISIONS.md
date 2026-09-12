@@ -520,3 +520,33 @@ local classification or its balance invariant.
 **Consequence:** Coincident state remains zero under either orientation.
 The effective state supports signed loop traversal but does not replace
 complete opposite-Area winding or operation-specific Boolean selection.
+
+------------------------------------------------------------------------
+
+## ADR-031 --- Area Boolean boundary loops are simple
+
+**Decision:** `BezierPath` may self-intersect, but a loop consumed as an Area boundary by the
+binary Boolean walker must be closed and simple at the active tolerance. The walker rejects an
+unresolved/self-intersecting input instead of repairing it implicitly.
+
+**Reasoning:** Self-intersection makes a loop's local material side and next Boolean transition
+consumer-dependent. The two-loop walker remains deterministic when those semantics have already
+been resolved into simple oriented boundaries.
+
+**Consequence:** Explicit self-intersection decomposition/interpretation occurs before Area Boolean
+walking. Offset intermediates remain free to self-intersect.
+
+------------------------------------------------------------------------
+
+## ADR-032 --- Self-intersection decomposition does not select material
+
+**Decision:** Discovering simple cycles in a self-intersecting path is topology-neutral. Cycle
+retention requires an explicit consumer policy.
+
+**Reasoning:** The same inner cycle can represent a hole under a general path fill rule or an
+artifact that must be removed from a constructed offset envelope. Geometry alone does not encode
+which interpretation was intended.
+
+**Consequence:** General Area conversion takes a fill rule. Offset regularization consumes its
+source Area and signed offset semantics. There is no generic regularizer whose unconditional rule
+is to retain or discard inner loops.

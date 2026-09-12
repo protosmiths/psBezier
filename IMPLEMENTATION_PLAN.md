@@ -179,6 +179,25 @@ Review:
 
 Then resolve the remaining Area and offset-retention questions in the design documents.
 
+## Milestone 8 — Binary simple-loop Boolean walk
+
+Design the binary walk before implementation. Its inputs are exactly two simple closed loops with
+complete Milestone 7 topology and classification. Union and intersection are the only local walk
+policies; subtraction is represented later through signed Area reversal/intersection semantics.
+
+The detailed contract is in `MILESTONE8_BOOLEAN_WALK_DESIGN.md`. In particular:
+
+- consume validated directed transitions rather than recomputing containment;
+- materialize selected source intervals through `extractPathInterval()`;
+- walk every disconnected result cycle and consume each result-bearing directed exit once;
+- settle coincident-edge ownership and contact transitions before implementing the full walker;
+- keep multi-loop Area algebra and zero-intersection containment policy separate;
+- reject self-intersecting Area-boundary inputs rather than repairing them inside the walker.
+
+Self-intersection cycle decomposition is reusable topology, but cycle retention is consumer-specific.
+General fill interpretation and offset regularization must not share one implicit “discard inner
+loops” policy.
+
 ## Later milestones — intentionally unresolved
 After design approval:
 - signed Area construction/normalization;

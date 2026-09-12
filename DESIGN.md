@@ -213,6 +213,11 @@ Topology should encode which incoming/outgoing branches coincide. A sufficiently
 ## Area
 An `Area` contains one or more closed immutable BezierPaths.
 
+An Area boundary loop admitted to binary Boolean walking is simple: it has no self-intersections at
+the active tolerance. `BezierPath` itself remains unrestricted and may self-intersect. Converting a
+self-intersecting path into Area boundaries requires an explicit semantic policy rather than silent
+repair during Boolean traversal.
+
 With SVG/screen coordinates (Y down):
 - CW contributes positive area;
 - CCW contributes negative area.
@@ -235,6 +240,20 @@ paths. Area-wide signed winding or membership is separate information used by th
 operation; it must not be folded into the local loop-relative state.
 
 Detailed signed normalization, containment, zero-intersection handling, and boolean walking are later design milestones.
+
+### Self-intersection decomposition and interpretation
+
+Splitting a self-intersecting path into simple cycles is topology discovery, not Area or offset
+semantics. A reusable decomposition may expose the simple cycles implied by the incidence graph,
+but a consumer decides which cycles survive:
+
+- general Area conversion uses an explicit fill rule;
+- offset regularization uses the source Area, offset sign, and dilation/erosion meaning;
+- other construction consumers may define other policies.
+
+Therefore an inner cycle is not generically a hole and is not generically removable. The same
+self-intersection topology may have different valid interpretations for a filled path and a raw
+offset.
 
 ## Validation/testing
 Preprocessing must produce valid topology before walking. The walker must not compensate for invalid topology.
