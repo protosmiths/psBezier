@@ -3,6 +3,7 @@ import "./cubic-bezier.test.js";
 import "./construction.test.js";
 import "./cubic-cubic-discovery.test.js";
 import "./cubic-cubic-metamorphic.test.js";
+import "./distance.test.js";
 import "./edge-classification.test.js";
 import "./foundation.test.js";
 import "./intersection.test.js";
