@@ -131,7 +131,7 @@ geometric relationship:
 
 Orientation and operation semantics are applied only after this relationship is established.
 
-### Signed-loop cases are not yet a Boolean truth table
+### Why the local walk rule is not the Area operator
 
 A negative loop is a contribution to a signed Area field, not automatically an independently filled
 set. Consequently, applying ordinary set union/intersection independently to two oriented loops
@@ -161,5 +161,156 @@ fields (or an equivalent exact boundary rule) that proves:
 - when opposite coincident contributions cancel;
 - when output projection may discard negative field without changing internal algebra.
 
-This is the next design gate. No signed multi-loop reducer should be implemented until those rules
-are explicit and pass the positive-loop table above as a special case.
+The field algebra below supplies a candidate resolution.
+
+## 3. Candidate signed winding-field algebra
+
+For Areas `A` and `B`, define operations pointwise on their integer winding fields:
+
+- negation: `W_negate(A) = -W_A`;
+- addition: `W_add(A,B) = W_A + W_B`;
+- union/join: `W_union(A,B) = max(W_A, W_B)`;
+- intersection/meet: `W_intersection(A,B) = min(W_A, W_B)`;
+- subtraction: `W_subtract(A,B) = W_A - W_B = W_add(A, negate(B))`;
+- ordinary material projection: material exists where `W_A > 0`.
+
+Subtraction is therefore signed addition with reversal. The Milestone 8 intersection-style exit
+after reversing `B` is a local boundary-extraction consequence at crossings where `W_A-W_B`
+transitions around zero. It is not the definition of subtraction at Area level.
+
+### Algebraic properties
+
+Integer `max` and `min` form a distributive lattice:
+
+- both are commutative, associative, and idempotent;
+- `max` distributes over `min`;
+- `min` distributes over `max`.
+
+Negation is an involution and exchanges the lattice operations:
+
+- `-max(A,B) = min(-A,-B)`;
+- `-min(A,B) = max(-A,-B)`.
+
+Addition is commutative and associative, has zero as its identity, and is translation-compatible
+with the lattice:
+
+- `C + max(A,B) = max(C+A, C+B)`;
+- `C + min(A,B) = min(C+A, C+B)`.
+
+Subtraction is derived from addition and negation and remains order-sensitive.
+
+Once negative fields are admitted, zero is not the bottom or top of the `min`/`max` lattice.
+Therefore an empty zero field is not a universal identity for signed union or signed intersection:
+
+- `max(-1, 0) = 0`;
+- `min(-1, 0) = -1`.
+
+This is coherent field algebra, but public API names must make clear whether an operation acts on
+the full signed field or on its positive-material projection.
+
+### Representation consequence: multiplicity is real
+
+An Area's loops form an ordered-independent collection with multiplicity, not a mathematical set
+that erases duplicate contributions. Two coincident same-direction `+1` loops may represent a
+field jump of `+2`.
+
+The eventual internal representation may use repeated loop terms or a simple loop plus a nonzero
+integer coefficient. Either representation must preserve the same winding field. Reversal negates
+the coefficient/contribution. Coincident opposite contributions cancel only under additive field
+composition or a lossless normalization that proves their total coefficient is zero.
+
+In particular:
+
+- `add(A,A)` has winding 2 wherever `A` has winding 1;
+- `union(A,A)` equals `A` because `max(1,1)=1`;
+- `intersection(A,A)` equals `A` because `min(1,1)=1`.
+
+### Truth-table experiments
+
+Each row lists field values in the geometrically distinct regions. `P` means the later ordinary
+material projection `W > 0`.
+
+#### Disjoint positive loops
+
+| Region | A | B | add | union/max | intersection/min | subtract A-B | P(A-B) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| inside A | 1 | 0 | 1 | 1 | 0 | 1 | material |
+| inside B | 0 | 1 | 1 | 1 | 0 | -1 | empty |
+| outside | 0 | 0 | 0 | 0 | 0 | 0 | empty |
+
+The internal subtraction result deliberately retains positive A and negative B. Projection removes
+the disjoint negative contribution from ordinary visible `A-B`.
+
+#### Overlapping positive loops
+
+| Region | A | B | add | union/max | intersection/min | subtract A-B | P(A-B) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| A only | 1 | 0 | 1 | 1 | 0 | 1 | material |
+| A and B | 1 | 1 | 2 | 1 | 1 | 0 | empty |
+| B only | 0 | 1 | 1 | 1 | 0 | -1 | empty |
+| outside | 0 | 0 | 0 | 0 | 0 | 0 | empty |
+
+#### Positive B contained inside positive A
+
+| Region | A | B | add | union/max | intersection/min | subtract A-B | P(A-B) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| A outside B | 1 | 0 | 1 | 1 | 0 | 1 | material |
+| inside B | 1 | 1 | 2 | 1 | 1 | 0 | empty/hole |
+| outside A | 0 | 0 | 0 | 0 | 0 | 0 | empty |
+
+The subtraction boundary of B is a hole in the positive projection without requiring a stored
+`hole` flag.
+
+#### Positive outer loop plus negative inner loop
+
+Let `H` be geometrically inside `A`, and let `-H` be its reversed contribution.
+
+| Region | A | -H | add(A,-H) | P(add) |
+| --- | ---: | ---: | ---: | --- |
+| A outside H | 1 | 0 | 1 | material |
+| inside H | 1 | -1 | 0 | empty/hole |
+| outside A | 0 | 0 | 0 | empty |
+
+#### Negative-only loop and zero
+
+| Region | -A | 0 | union/max | intersection/min | P(-A) |
+| --- | ---: | ---: | ---: | ---: | --- |
+| inside A | -1 | 0 | 0 | -1 | empty |
+| outside A | 0 | 0 | 0 | 0 | empty |
+
+This demonstrates both why negative-only geometry must remain available internally and why signed
+`union`/`intersection` should not be described as ordinary set operations without qualification.
+
+#### Coincident opposite contributions
+
+| Region | A | -A | add | union/max | intersection/min | subtract A-A |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| inside boundary | 1 | -1 | 0 | 1 | -1 | 0 |
+| outside | 0 | 0 | 0 | 0 | 0 | 0 |
+
+Opposite loops cancel under addition, not under lattice union/intersection.
+
+#### Magnitude-two field
+
+| Region | A | A | add(A,A) | union(A,A) | intersection(A,A) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| inside A | 1 | 1 | 2 | 1 | 1 |
+| outside | 0 | 0 | 0 | 0 | 0 |
+
+Magnitude is semantic under the proposed Area definition. Internal normalization may replace two
+coincident contributions with coefficient 2, but may not collapse them to one.
+
+### Next design checks
+
+Before implementation, resolve:
+
+1. public naming that distinguishes signed-field `max`/`min` from operations on projected positive
+   material;
+2. whether `Area` stores repeated loop terms or canonical integer boundary coefficients;
+3. how a boundary constructor derives loop coefficients for `max`, `min`, and addition without
+   evaluating the entire plane;
+4. how the Milestone 8 simple-loop transition planner is parameterized by field levels rather than
+   assuming only `0/1` inputs;
+5. when positive-material projection is allowed and whether its result is a distinct type.
+
+No multi-loop reduction code should precede these decisions.

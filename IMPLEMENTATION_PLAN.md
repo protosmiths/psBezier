@@ -208,6 +208,11 @@ complete ordinary-positive-loop truth table. Signed zero-intersection operations
 explicit Area-level algebra that proves subtraction-by-reversal for disjoint, containment, and
 overlap cases without discarding meaningful negative geometry.
 
+The candidate algebra is pointwise integer-field negation, addition, `max`, and `min`, with
+subtraction defined as addition after negation and ordinary material projected by `W > 0`. Validate
+its truth tables and settle public naming, multiplicity representation, and field-level boundary
+extraction before implementation.
+
 ## Later milestones — intentionally unresolved
 After design approval:
 - signed Area construction/normalization;
