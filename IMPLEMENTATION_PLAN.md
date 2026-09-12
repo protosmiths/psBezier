@@ -147,6 +147,11 @@ specified in `MILESTONE7_EDGE_CLASSIFICATION_DESIGN.md`. Implement that interpre
 without mutating the base arrangement. Design and approve the geometric loop-side classifier
 separately before computing noncoincident states.
 
+The proposed loop-side classifier is specified in
+`MILESTONE7_LOOP_SIDE_CLASSIFICATION_DESIGN.md`: point/path distance, adaptive signed-crossing
+containment rays, directed edge sampling, event characterization, then conditional balance
+validation. Review this design before implementation.
+
 ## Milestone 7A — Boundary reconstruction infrastructure
 Design/implement a reusable boundary assembly mechanism only after incidence topology is stable.
 
