@@ -1,5 +1,11 @@
 export { analyzeDirectedTransitionGraph } from "./transition-graph.js";
 export { planLoopPairTransitions } from "./loop-pair-transition-planner.js";
+export { materializeLoopPairTransitionPlan } from "./materialize-transition-plan.js";
+export type {
+  TransitionMaterializationIssue,
+  TransitionMaterializationIssueCode,
+  TransitionMaterializationReport,
+} from "./materialize-transition-plan.js";
 export type {
   BinaryLoopOperation,
   LoopPairOrientationSigns,

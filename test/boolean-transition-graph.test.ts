@@ -9,6 +9,7 @@ import {
   createToleranceContext,
   intersectPathsDetailed,
   loopPairClassificationScope,
+  materializeLoopPairTransitionPlan,
   planLoopPairTransitions,
   point,
   type BezierPath,
@@ -172,6 +173,61 @@ describe("Milestone 8 topology-only transition graph", () => {
     assert.equal(result.valid, true);
     assert.equal(result.complete, true);
     assert.equal(result.graph.cycles.length, 1);
+    const materialized = materializeLoopPairTransitionPlan(result, tolerance);
+    assert.equal(materialized.complete, true);
+    assert.equal(materialized.paths.length, 1);
+  });
+
+  it("materializes one immutable closed path for every planned cycle", () => {
+    const first = squareAt(0, 0);
+    const second = squareAt(1, 1);
+    const planned = plan(first, second, "union").result;
+    const materialized = materializeLoopPairTransitionPlan(planned, tolerance);
+    assert.equal(materialized.complete, true);
+    assert.equal(materialized.paths.length, 2);
+    assert.equal(
+      materialized.paths.every((path) => path.isClosed && Object.isFrozen(path)),
+      true,
+    );
+  });
+
+  it("materializes swap-equivalent same-direction corridor geometry", () => {
+    const first = squareAt(0, 0, 2);
+    const second = squareAt(1, 0, 2);
+    const direct = materializeLoopPairTransitionPlan(
+      plan(first, second, "union").result,
+      tolerance,
+    );
+    const swapped = materializeLoopPairTransitionPlan(
+      plan(second, first, "union").result,
+      tolerance,
+    );
+    assert.equal(direct.complete, true);
+    assert.equal(swapped.complete, true);
+    const fingerprint = (path: BezierPath) =>
+      path.segments
+        .flatMap((segment) => [segment.start, segment.control1, segment.control2])
+        .map((value) => `${value.x.toFixed(9)},${value.y.toFixed(9)}`)
+        .sort();
+    assert.deepEqual(fingerprint(swapped.paths[0]!), fingerprint(direct.paths[0]!));
+  });
+
+  it("refuses to materialize a graph edge without incidence identity", () => {
+    const vertex = identity();
+    const graph = analyzeDirectedTransitionGraph([edge(vertex, vertex)]);
+    const invalidPlan = Object.freeze({
+      operation: "union" as const,
+      orientations: Object.freeze({ first: 1 as const, second: 1 as const }),
+      edges: graph.cycles[0]!.edges,
+      graph,
+      valid: true,
+      complete: true,
+      issues: Object.freeze([]),
+    });
+    const report = materializeLoopPairTransitionPlan(invalidPlan, tolerance);
+    assert.equal(report.complete, false);
+    assert.equal(report.paths.length, 0);
+    assert.ok(report.issues.some((value) => value.code === "non-incidence-edge"));
   });
 
   it("enumerates every disconnected result cycle exactly once", () => {

@@ -168,6 +168,12 @@ direction/full-cycle semantics.
 to a builder. It does not introduce a second splitting algorithm or fabricate connectors to hide a
 discontinuous transition.
 
+Materialization resolves every graph-edge identity back to the exact owning incidence, verifies
+each consecutive join and final closure against coordinate tolerance, and returns one immutable
+closed `BezierPath` per graph cycle. A missing incidence, missing source interval, discontinuous
+join, or discontinuous closure is diagnostic failure. Materialization never revises selection,
+changes corridor ownership, snaps endpoints, or inserts connector geometry.
+
 ## Zero-intersection loop pairs
 
 An event-to-event walker has nothing to traverse when two loops have no intersections. Disjoint
