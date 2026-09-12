@@ -198,6 +198,16 @@ Self-intersection cycle decomposition is reusable topology, but cycle retention 
 General fill interpretation and offset regularization must not share one implicit “discard inner
 loops” policy.
 
+## Milestone 9 — Signed Area meaning and zero-intersection cases
+
+Define the immutable signed-loop representation and lossless internal normalization before choosing
+a multi-loop reduction algorithm. Then resolve two-simple-loop cases with no boundary events.
+
+`MILESTONE9_AREA_ALGEBRA_DESIGN.md` specifies the proposed signed winding-field invariant and the
+complete ordinary-positive-loop truth table. Signed zero-intersection operations remain gated on an
+explicit Area-level algebra that proves subtraction-by-reversal for disjoint, containment, and
+overlap cases without discarding meaningful negative geometry.
+
 ## Later milestones — intentionally unresolved
 After design approval:
 - signed Area construction/normalization;
