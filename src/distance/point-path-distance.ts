@@ -11,7 +11,10 @@ import { normalizeGlobalT, pathBezierAsCubic, type BezierPath } from "../path/in
 export interface PointPathDistanceOptions {
   readonly maxNodes?: number;
   readonly maxDepth?: number;
+  readonly decisionDistance?: number;
 }
+
+export type DistanceThresholdRelation = "within" | "beyond" | "unresolved";
 
 export interface PointPathDistanceReport {
   /** Upper bound furnished by an evaluated source-curve point. */
@@ -27,6 +30,8 @@ export interface PointPathDistanceReport {
   readonly nodesCreated: number;
   readonly remainingNodes: number;
   readonly maximumDepthReached: number;
+  readonly decisionDistance: number | null;
+  readonly thresholdRelation: DistanceThresholdRelation | null;
 }
 
 interface DistanceNode {
@@ -94,10 +99,13 @@ export function pointPathDistanceDetailed(
 ): PointPathDistanceReport {
   const maxNodes = options.maxNodes ?? 100_000;
   const maxDepth = options.maxDepth ?? 64;
+  const decisionDistance = options.decisionDistance ?? null;
   if (!Number.isInteger(maxNodes) || maxNodes <= 0)
     throw new RangeError("maxNodes must be positive");
   if (!Number.isInteger(maxDepth) || maxDepth < 0)
     throw new RangeError("maxDepth must be nonnegative");
+  if (decisionDistance !== null && (!Number.isFinite(decisionDistance) || decisionDistance < 0))
+    throw new RangeError("decisionDistance must be finite and nonnegative");
 
   let bestPoint = evaluateCubic(pathBezierAsCubic(path.first), 0);
   let bestDistanceSquared = distanceSquared(target, bestPoint);
@@ -171,7 +179,16 @@ export function pointPathDistanceDetailed(
       ...queue.map((value) => value.lowerBoundSquared),
       bestDistanceSquared,
     );
-    if (distanceGapWithinTolerance(bestDistanceSquared, activeLower, tolerance.coordinate)) break;
+    const thresholdResolved =
+      decisionDistance !== null &&
+      (bestDistanceSquared <= decisionDistance * decisionDistance ||
+        activeLower > decisionDistance * decisionDistance);
+    if (
+      thresholdResolved ||
+      (decisionDistance === null &&
+        distanceGapWithinTolerance(bestDistanceSquared, activeLower, tolerance.coordinate))
+    )
+      break;
   }
 
   const lowerBoundSquared = Math.min(
@@ -184,6 +201,14 @@ export function pointPathDistanceDetailed(
     lowerBoundSquared,
     tolerance.coordinate,
   );
+  const thresholdRelation =
+    decisionDistance === null
+      ? null
+      : bestDistanceSquared <= decisionDistance * decisionDistance
+        ? "within"
+        : lowerBoundSquared > decisionDistance * decisionDistance
+          ? "beyond"
+          : "unresolved";
   return Object.freeze({
     distanceSquared: bestDistanceSquared,
     lowerBoundSquared,
@@ -196,5 +221,7 @@ export function pointPathDistanceDetailed(
     nodesCreated,
     remainingNodes: queue.length,
     maximumDepthReached,
+    decisionDistance,
+    thresholdRelation,
   });
 }

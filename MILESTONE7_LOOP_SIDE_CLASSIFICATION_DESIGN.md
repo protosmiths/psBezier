@@ -55,11 +55,10 @@ For a query point `P`:
 - established lower bound `> tolerance.coordinate` permits containment rays;
 - an incomplete distance result spanning the threshold means `UNRESOLVED`.
 
-Strict boundary identity and edge-sample confidence use different thresholds. A point beyond
-`tolerance.coordinate` is not `BOUNDARY`, but an edge sample inside a wider configurable
-classification safety margin is cautionary and requires additional samples. The initial
-implementation may default that margin from `tolerance.discovery`, but it must be named policy—not
-an unexplained multiplier—and retained in diagnostics.
+Proximity beyond the boundary threshold does not itself weaken containment. A clean test segment
+can classify a point arbitrarily close to the loop. Numerical difficulty belongs to a particular
+test segment—overlap, tangency, knot contact, or poor conditioning—not globally to the query point.
+Change the external point when a ray is unsuitable.
 
 An edge sample near B may indicate a missing contact or tolerance-coincident interval, but proximity
 alone does not prove that the curves intersect. It triggers resampling/diagnostics rather than a
@@ -145,10 +144,10 @@ until:
 - the configured sample set/budget is exhausted; or
 - contradictory usable states are found.
 
-One clearly separated midpoint is normally sufficient. Additional samples are required when the
-midpoint is boundary-near, its distance computation is incomplete, the edge is very short relative
-to tolerance, or diagnostics request stronger validation. Test/audit modes may require multiple
-agreeing samples on every edge.
+One midpoint with a conclusive nonboundary containment result is normally sufficient, regardless
+of its distance beyond `tolerance.coordinate`. Additional samples are required when containment is
+unresolved, the edge is very short relative to tolerance, or diagnostics request stronger
+validation. Test/audit modes may require multiple agreeing samples on every edge.
 
 Results:
 

@@ -57,4 +57,33 @@ describe("point-to-path distance", () => {
     assert.equal(report.depthLimited, true);
     assert.equal(report.complete, false);
   });
+
+  it("proves threshold relations from bounds rather than estimate completeness", () => {
+    const path = new BezierPathBuilder(point(0, 0))
+      .appendCubic(point(1 / 3, 0), point(2 / 3, 0), point(1, 0))
+      .build();
+    for (const [distance, expected] of [
+      [0.99e-8, "within"],
+      [1e-8, "within"],
+      [1.01e-8, "beyond"],
+    ] as const) {
+      const report = pointPathDistanceDetailed(path, point(0.5, distance), tolerance, {
+        decisionDistance: tolerance.coordinate,
+      });
+      assert.equal(report.thresholdRelation, expected);
+    }
+  });
+
+  it("keeps a threshold decision unresolved when limited bounds straddle it", () => {
+    const path = new BezierPathBuilder(point(0, 0))
+      .appendCubic(point(0, 10), point(10, 10), point(10, 0))
+      .build();
+    const report = pointPathDistanceDetailed(path, point(3, 4), tolerance, {
+      decisionDistance: 1,
+      maxDepth: 0,
+    });
+    assert.equal(report.thresholdRelation, "unresolved");
+    assert.ok(report.lowerBoundSquared <= 1);
+    assert.ok(report.distanceSquared > 1);
+  });
 });
