@@ -601,3 +601,26 @@ intersection cycle.
 **Consequence:** The Boolean planner does not ask a contact to choose an operation exit. Cyclic
 branch order may validate/explain a smooth event but is not a standalone numerical classifier at
 exact tangencies, corners, stationary branches, overlaps, or higher-valence vertices.
+
+------------------------------------------------------------------------
+
+## ADR-036 --- Transverse Boolean exits have two confidence-aware derivations
+
+**Decision:** At every positively characterized transverse binary event, independently derive
+union/intersection exits from cyclic outgoing-branch order and from classified effective edge
+state. Retain the conditioning and evidence for both derivations. Require agreement when both are
+strong; allow one to resolve the transition only when the other is explicitly weak or
+inconclusive. Two strong disagreements and two weak derivations remain unresolved.
+
+**Reasoning:** Directed local topology already encodes the operation wedges without requiring a
+separate whole-loop orientation calculation, while loop-relative containment classification plus
+stored orientation derives the same transition through a numerically independent route. Near a
+shallow crossing, branch ordering may be weak while classification remains clear; difficult
+containment sampling can produce the reverse situation. Confident disagreement exposes a defect
+such as a misclassified edge, unstable branch order, incorrect orientation, bad tangent, or wrong
+event characterization.
+
+**Consequence:** Transition diagnostics preserve both proposed exit pairs, both confidence
+records, their agreement, and the final resolution source. The implementation never silently
+chooses between conflicting strong answers. Contacts remain transparent and are not passed through
+this switching invariant.

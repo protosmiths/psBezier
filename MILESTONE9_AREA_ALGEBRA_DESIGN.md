@@ -119,8 +119,11 @@ boundaries are coincident/equivalent. Coincident full boundaries should normally
 as overlap topology. If they reach this path without such topology, return unresolved rather than
 guessing identity from samples.
 
-Tangential contact is not a zero-intersection case: it has an event and belongs to the Milestone 8
-contact transition policy.
+Tangential contact is an event geometrically, but not a boundary-changing intersection. It is
+transparent to Boolean switching and therefore leaves the same whole-loop Area decisions as a
+relationship with no events. The useful Area-level category is consequently **zero switching**:
+no transverse crossings and no operative overlap frontiers. It includes event-free and
+tangent-only relationships.
 
 ### Positive-loop truth table
 
@@ -334,6 +337,58 @@ character. After Milestone 7 has classified an edge as `INNER` or `OUTER`, the w
 `effectiveState = rawState * orientationSign(path)`
 
 No additional cross product belongs in the walker.
+
+### Confidence-aware transverse transition corroboration
+
+At every positively characterized transverse binary event, derive the operation exits in two
+independent ways:
+
+1. **Local topology.** Cyclically order the two outgoing directed branches. In screen-coordinate
+   orientation, the clockwise-most exit bounds the local intersection of the directed positive
+   sides and the counter-clockwise-most exit bounds their local union.
+2. **Classified state.** Derive the exits from each branch's loop-relative `INNER`/`OUTER` state
+   combined with its stored path orientation through `effectiveState = rawState *
+   orientationSign`.
+
+Each derivation reports its own conditioning rather than merely an exit identity. Local-topology
+conditioning reflects tangent/branch separation and the stability of the cyclic order.
+Classification confidence reflects containment evidence, usable edge samples, distance/ray
+completion, and classification consistency.
+
+The transition resolver follows this contract:
+
+| Topology evidence | Classification evidence | Relationship | Resolution |
+| --- | --- | --- | --- |
+| strong | strong | agree | validated |
+| weak/inconclusive | strong | n/a | classification-derived |
+| strong | weak/inconclusive | n/a | topology-derived |
+| strong | strong | disagree | invalid/unresolved |
+| weak/inconclusive | weak/inconclusive | n/a | refine or fail explicitly |
+
+The two methods are corroborating derivations, not an arbitrary primary rule plus fallback. Never
+silently choose between two confident disagreements. A disagreement can expose a misclassified
+edge, incorrect path orientation, reversed/unstable tangent, bad cyclic ordering, or an event that
+was incorrectly characterized as transverse.
+
+Conceptually, detailed transition validation retains at least:
+
+```ts
+interface TransverseTransitionValidation {
+  readonly topologyUnionExit: IntersectionIncidence | null;
+  readonly topologyIntersectionExit: IntersectionIncidence | null;
+  readonly topologyConditioning: TransitionConditioning;
+  readonly classifiedUnionExit: IntersectionIncidence | null;
+  readonly classifiedIntersectionExit: IntersectionIncidence | null;
+  readonly classificationConfidence: ClassificationConfidence;
+  readonly agreement: "agree" | "disagree" | "inconclusive";
+  readonly resolutionSource: "both" | "topology" | "classification" | "unresolved";
+}
+```
+
+The names may change during API design; the retained evidence and resolution semantics may not.
+Contacts are excluded because they are transparent rather than switching events. Overlap
+frontiers, corners without four well-conditioned branches, stationary occurrences, unresolved
+events, and higher-valence vertices require their own validation rules.
 
 For subtraction of clockwise A and B, negating B reverses it to counter-clockwise. The useful
 equivalence is:
