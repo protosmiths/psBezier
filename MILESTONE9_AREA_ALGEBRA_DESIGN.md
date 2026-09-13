@@ -59,6 +59,12 @@ interface AreaTerm {
 An implementation may refine this API shape, but it must not replace path direction with a signed
 coefficient. Negation reverses every path and preserves multiplicity.
 
+Multiplicity is a positive integer. Ordinary user-created boundary terms begin with multiplicity
+one. Larger values normally arise only from field addition or lossless compression of proven
+same-direction coincident terms. It should remain primarily an internal representation detail;
+ordinary geometry APIs need not ask users to reason about multiplicity unless they explicitly work
+with signed-field values.
+
 General `BezierPath` remains free to self-intersect. A self-intersecting path must be decomposed and
 interpreted under an explicit consumer policy before its cycles become Area loops.
 
@@ -339,6 +345,20 @@ Reversed B's required cutting boundary therefore points forward toward its next 
 its geometry back to clockwise and storing a negative coefficient would lose that operational
 fact and require a separate backward-traversal rule.
 
+Steve's two-crossing picture gives the geometric explanation. Let A and B begin as overlapping
+clockwise positive loops, then reverse B for `A-B`:
+
+| Crossing | Raw outgoing branches | A effective state | reversed B effective state | Positive boundary exit |
+| --- | --- | ---: | ---: | --- |
+| both geometrically OUTER | A OUTER, B OUTER | `+1 * +1 = +1` | `+1 * -1 = -1` | A forward |
+| both geometrically INNER | A INNER, B INNER | `-1 * +1 = -1` | `-1 * -1 = +1` | reversed B forward |
+
+The first crossing stays on A; the second cuts onto reversed B. Following reversed B forward then
+returns to A at the other event. What can feel like “flipping INNER and OUTER” is therefore not a
+mutation of raw classification. The raw state answers where the edge lies relative to the other
+loop; orientation answers which side of its own directed boundary has the greater signed
+contribution. Their product selects the semantic boundary role.
+
 ### Monotonicity preserves source direction
 
 There is a further compatibility between the field algebra and oriented-path walking. Suppose a
@@ -383,11 +403,10 @@ Before implementation, resolve:
 
 1. public naming that distinguishes signed-field `max`/`min` from operations on projected positive
    material;
-2. whether `Area` exposes multiplicity directly or keeps it as an internal compression detail;
-3. how a boundary constructor derives loop coefficients for `max`, `min`, and addition without
+2. how a boundary constructor derives loop multiplicities for `max`, `min`, and addition without
    evaluating the entire plane;
-4. how the Milestone 8 simple-loop transition planner is parameterized by field levels rather than
+3. how the Milestone 8 simple-loop transition planner is parameterized by field levels rather than
    assuming only `0/1` inputs;
-5. when positive-material projection is allowed and whether its result is a distinct type.
+4. when positive-material projection is allowed and whether its result is a distinct type.
 
 No multi-loop reduction code should precede these decisions.

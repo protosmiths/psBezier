@@ -218,6 +218,10 @@ forward traversal; optional positive integer multiplicity is magnitude only. Neg
 paths. Add exact polynomial Bézier signed-area integration before Area construction so completed
 loops can be classified and checked without control-polygon approximation.
 
+Ordinary Area terms begin with multiplicity one; larger multiplicities arise from signed-field
+operations or coincident compression and remain primarily internal. Preserve the documented
+two-crossing subtraction example as the geometric explanation of effective edge state.
+
 ## Later milestones — intentionally unresolved
 After design approval:
 - signed Area construction/normalization;

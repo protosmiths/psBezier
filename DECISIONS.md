@@ -569,3 +569,18 @@ effective state.
 Lossless normalization may combine same-direction coincident terms by adding multiplicities and may
 cancel proven opposite contributions, but it does not erase orientation. Closed-loop orientation is
 verified after construction using exact polynomial Bézier signed-area integration.
+
+------------------------------------------------------------------------
+
+## ADR-034 --- Area multiplicity is positive magnitude
+
+**Decision:** An Area boundary term has positive integer multiplicity. Ordinary constructed terms
+start at one. Orientation supplies contribution sign; multiplicity supplies only magnitude.
+
+**Reasoning:** Field addition can create magnitude-two or larger jumps, and proven coincident
+same-direction terms can be compressed without duplicating geometry. Allowing a signed
+multiplicity would redundantly encode and potentially contradict the path's operational direction.
+
+**Consequence:** Negation reverses paths without changing multiplicity. Opposite-direction
+coincident terms may cancel under additive normalization. Multiplicity remains primarily an
+internal compression detail unless an advanced signed-field API explicitly exposes it.
