@@ -550,3 +550,22 @@ which interpretation was intended.
 **Consequence:** General Area conversion takes a fill rule. Offset regularization consumes its
 source Area and signed offset semantics. There is no generic regularizer whose unconditional rule
 is to retain or discard inner loops.
+
+------------------------------------------------------------------------
+
+## ADR-033 --- Area loop direction remains semantic topology
+
+**Decision:** Preserve every Area loop's actual path direction. Orientation supplies the sign of
+its winding contribution and a positive integer multiplicity may supply magnitude. Negation
+reverses paths and preserves multiplicity; it does not canonicalize geometry to clockwise and move
+the sign into a detached coefficient.
+
+**Reasoning:** Path direction is operational in Boolean traversal. In subtraction, reversing B both
+negates its winding contribution and makes the required cutting branch point forward toward the
+next incidence. A counter-clockwise INNER edge and clockwise OUTER edge have the same positive
+effective state.
+
+**Consequence:** Boolean traversal always follows the stored direction of a selected source path.
+Lossless normalization may combine same-direction coincident terms by adding multiplicities and may
+cancel proven opposite contributions, but it does not erase orientation. Closed-loop orientation is
+verified after construction using exact polynomial Bézier signed-area integration.

@@ -14,8 +14,8 @@ collection defines an integer-valued signed winding field over points not on its
 
 where a loop contributes:
 
-- `+1` when `P` is inside a clockwise loop;
-- `-1` when `P` is inside a counter-clockwise loop;
+- `+m` when `P` is inside a clockwise loop term of positive multiplicity `m`;
+- `-m` when `P` is inside a counter-clockwise loop term of positive multiplicity `m`;
 - `0` when `P` is outside the loop.
 
 This is not merely a union of independently filled paths. Loop ordering has no semantic meaning,
@@ -42,6 +42,22 @@ Every stored boundary loop must be:
 - simple at the Area's tolerance context;
 - nondegenerate;
 - explicitly oriented.
+
+The stored path direction is preserved. It supplies both the winding sign and the forward
+traversal used by intersection topology and Boolean walking. A positive integer multiplicity
+supplies only the magnitude of a repeated coincident contribution.
+
+Conceptually:
+
+```ts
+interface AreaTerm {
+  readonly path: BezierPath; // stored direction is semantic
+  readonly multiplicity: number; // positive integer
+}
+```
+
+An implementation may refine this API shape, but it must not replace path direction with a signed
+coefficient. Negation reverses every path and preserves multiplicity.
 
 General `BezierPath` remains free to self-intersect. A self-intersecting path must be decomposed and
 interpreted under an explicit consumer policy before its cycles become Area loops.
@@ -208,16 +224,17 @@ Therefore an empty zero field is not a universal identity for signed union or si
 This is coherent field algebra, but public API names must make clear whether an operation acts on
 the full signed field or on its positive-material projection.
 
-### Representation consequence: multiplicity is real
+### Representation consequence: orientation is sign; multiplicity is magnitude
 
 An Area's loops form an ordered-independent collection with multiplicity, not a mathematical set
 that erases duplicate contributions. Two coincident same-direction `+1` loops may represent a
 field jump of `+2`.
 
-The eventual internal representation may use repeated loop terms or a simple loop plus a nonzero
-integer coefficient. Either representation must preserve the same winding field. Reversal negates
-the coefficient/contribution. Coincident opposite contributions cancel only under additive field
-composition or a lossless normalization that proves their total coefficient is zero.
+The internal representation preserves naturally oriented paths and may compress repeated
+same-direction coincident terms with a positive integer multiplicity. Reversal negates a
+contribution by reversing its path, not by detaching sign from traversal. Coincident opposite
+contributions cancel only under additive field composition or a lossless normalization that proves
+their total signed multiplicity is zero.
 
 In particular:
 
@@ -298,7 +315,67 @@ Opposite loops cancel under addition, not under lattice union/intersection.
 | outside | 0 | 0 | 0 | 0 | 0 |
 
 Magnitude is semantic under the proposed Area definition. Internal normalization may replace two
-coincident contributions with coefficient 2, but may not collapse them to one.
+coincident contributions with multiplicity 2, but may not collapse them to one.
+
+### Division of responsibility
+
+The field algebra specifies the result field. Oriented boundary paths specify how that field's
+boundary is traversed and constructed.
+
+At an intersection, derivatives and cross products help establish valid local geometry and event
+character. After Milestone 7 has classified an edge as `INNER` or `OUTER`, the walk choice uses:
+
+`effectiveState = rawState * orientationSign(path)`
+
+No additional cross product belongs in the walker.
+
+For subtraction of clockwise A and B, negating B reverses it to counter-clockwise. The useful
+equivalence is:
+
+- clockwise `OUTER`: `+1 * +1 = +1`;
+- counter-clockwise `INNER`: `-1 * -1 = +1`.
+
+Reversed B's required cutting boundary therefore points forward toward its next incidence. Forcing
+its geometry back to clockwise and storing a negative coefficient would lose that operational
+fact and require a separate backward-traversal rule.
+
+### Monotonicity preserves source direction
+
+There is a further compatibility between the field algebra and oriented-path walking. Suppose a
+directed source boundary separates field values `a0` and `a1`, while the other input has locally
+constant value `b`. Its output jump is:
+
+- join: `max(a1,b) - max(a0,b)`;
+- meet: `min(a1,b) - min(a0,b)`;
+- addition: `a1 - a0`.
+
+Because `max` and `min` are monotone, these operations may reduce a source jump to zero, but they do
+not reverse its sign. A surviving noncoincident source edge can therefore retain its stored forward
+direction. Negation is the operation that reverses paths globally before topology is built.
+
+This explains why the Milestone 8 forward-only incidence walk generalizes naturally to integer
+field levels instead of needing arbitrary per-edge reversal.
+
+### Exact Bézier signed area and orientation
+
+Orientation is determined after a closed path has been constructed. For each cubic, integrate:
+
+`area = 1/2 * integral(x(t) y'(t) - y(t) x'(t), t=0..1)`
+
+The integrand is polynomial, so the cubic contribution can be evaluated exactly up to floating
+point arithmetic and path area is the sum of its cubic contributions. A near-zero result is
+degenerate/unresolved at the Area tolerance.
+
+With numeric coordinates whose Y axis points down, the visually clockwise example
+`(0,0) -> (1,0) -> (1,1) -> (0,1)` makes the integral above positive. Therefore, if psBezier uses
+that formula without an extra sign inversion:
+
+- positive signed area means clockwise in screen coordinates;
+- negative signed area means counter-clockwise.
+
+Name and test this convention explicitly; do not import the opposite Y-up sign rule accidentally.
+The post-walk signed-area orientation must agree with the direction implied by every retained field
+jump around the cycle.
 
 ### Next design checks
 
@@ -306,7 +383,7 @@ Before implementation, resolve:
 
 1. public naming that distinguishes signed-field `max`/`min` from operations on projected positive
    material;
-2. whether `Area` stores repeated loop terms or canonical integer boundary coefficients;
+2. whether `Area` exposes multiplicity directly or keeps it as an internal compression detail;
 3. how a boundary constructor derives loop coefficients for `max`, `min`, and addition without
    evaluating the entire plane;
 4. how the Milestone 8 simple-loop transition planner is parameterized by field levels rather than

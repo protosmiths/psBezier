@@ -213,6 +213,11 @@ subtraction defined as addition after negation and ordinary material projected b
 its truth tables and settle public naming, multiplicity representation, and field-level boundary
 extraction before implementation.
 
+Preserve oriented paths in the Area representation. Orientation is the contribution sign and
+forward traversal; optional positive integer multiplicity is magnitude only. Negation reverses
+paths. Add exact polynomial Bézier signed-area integration before Area construction so completed
+loops can be classified and checked without control-polygon approximation.
+
 ## Later milestones — intentionally unresolved
 After design approval:
 - signed Area construction/normalization;
