@@ -584,3 +584,20 @@ multiplicity would redundantly encode and potentially contradict the path's oper
 **Consequence:** Negation reverses paths without changing multiplicity. Opposite-direction
 coincident terms may cancel under additive normalization. Multiplicity remains primarily an
 internal compression detail unless an advanced signed-field API explicitly exposes it.
+
+------------------------------------------------------------------------
+
+## ADR-035 --- Contacts are transparent Boolean events
+
+**Decision:** A positively characterized contact never switches source paths. It remains in the
+incidence topology but contributes only same-path continuation when that path's edges are selected.
+
+**Reasoning:** At an ordinary transverse binary crossing, entrances and exits have cyclic order
+`E E I I`; the exits are adjacent even when one path is reversed or the adjacency wraps around the
+chosen listing origin. A contact has an alternating limiting arrangement and does not define an
+exit wedge. Two externally touching positive loops may therefore remain two union cycles and no
+intersection cycle.
+
+**Consequence:** The Boolean planner does not ask a contact to choose an operation exit. Cyclic
+branch order may validate/explain a smooth event but is not a standalone numerical classifier at
+exact tangencies, corners, stationary branches, overlaps, or higher-valence vertices.

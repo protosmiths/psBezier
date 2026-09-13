@@ -69,6 +69,30 @@ The uniqueness rule does not automatically cover contacts, overlap frontiers, un
 or higher-valence vertices. Those event classes require explicit transition validation before
 walking. An unresolved transition blocks the operation rather than inviting a guess.
 
+### Cyclic branch-order interpretation
+
+At an ordinary smooth transverse binary crossing, consider the four directed branch rays around
+the event and label each as an entrance (`I`) or exit (`E`) according to stored path traversal. Their
+cyclic order is always equivalent, up to rotation, to:
+
+`E E I I`
+
+The adjacency may wrap across whatever ray was chosen as the beginning of a linear listing. If one
+path is reversed, its entrance and exit exchange, but the two exits at a transverse crossing remain
+cyclically adjacent.
+
+For two clockwise positive loops, the two adjacent exits can be understood geometrically as the
+intersection-side and union-side boundaries. With a fixed screen-coordinate convention, the more
+clockwise exit bounds the intersection and the more counter-clockwise exit bounds the union. The
+existing `rawState * orientationSign` rule is the orientation-aware algebraic encoding of this
+same local picture and remains the authoritative selection mechanism.
+
+This cyclic rule is useful as explanation and validation, not as a replacement for Milestone 7
+classification. At an exact tangency, branch rays may coincide and have no numerically stable strict
+cyclic order. At a knot, stationary point, cusp, overlap frontier, or higher-valence vertex, there
+may not be one smooth four-ray configuration. Those cases continue to rely on separately resolved
+branch tangents, edge-state transitions, and event characterization.
+
 ## Contacts and tangencies
 
 A contact at which the selected boundary remains on the same source loop does not require a path
@@ -80,12 +104,21 @@ selection also remains constant across that incidence. A selected incoming edge 
 continues through the contact to the outgoing edge on the same source loop. There is no loop
 switch.
 
+In the nondegenerate limiting picture, a contact has alternating entrance/exit order (`E I E I`)
+rather than the adjacent-exit structure of a transverse crossing. At an exact smooth tangency some
+rays coincide, so this mnemonic must not be treated as a standalone numerical predicate.
+
 This handles external touching solids naturally: union may retain both loops as two cycles touching
 at one geometric point, while intersection may retain neither because their common set has no
 Area. The shared coordinate does not merge their distinct directed-exit identities.
 
 If the event is not positively characterized as a contact, or either same-path continuation is not
 selected consistently, the transition is unresolved and blocks walking.
+
+Thus a contact incidence remains present as source-path segmentation and diagnostic topology, but
+is transparent to Boolean decision-making. An implementation may contract its same-path graph
+vertex as an optimization, provided directed-exit identity and once-only consumption remain
+equivalent.
 
 ## Coincident intervals
 

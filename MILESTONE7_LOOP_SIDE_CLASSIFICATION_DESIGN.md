@@ -16,6 +16,13 @@ by a third path splits the sampled edge, but an A edge is still classified only 
 
 No Boolean operation, Area-wide membership, edge-retention rule, or walker belongs in this layer.
 
+For later validation, an ordinary smooth transverse event has cyclic entrance/exit branch order
+equivalent to `E E I I`; reversal of either path preserves cyclic adjacency of the two exits. A
+contact has the alternating limiting pattern `E I E I`, but exact tangent rays may coincide. This
+branch-order observation supplements rather than replaces the state-transition and tangent-
+conditioning classifier, especially at knots, stationary branches, overlaps, and higher-valence
+vertices.
+
 ## 1. Why sampling is sufficient
 
 After all A/B intersections and coincident intervals have been discovered, the containment state
