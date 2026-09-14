@@ -225,7 +225,7 @@ Core geometry uses Cartesian design coordinates (X right, Y up):
 SVG, Canvas, and raster coordinates are display-space concerns. A renderer receives an explicit
 orientation-reversing affine view transform; display coordinates do not alter kernel semantics.
 
-As a boundary is traversed, area to the right is positive.
+As a positively oriented CCW boundary is traversed, its positive interior lies to the left.
 
 Area may contain solids, holes, disconnected components, and signed/negative intermediate regions required by boolean algebra. A CCW loop inside a CW loop can define a meaningful positive island within negative geometry and must not be normalized away merely because it currently contains no visible positive-material interpretation.
 

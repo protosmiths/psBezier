@@ -160,6 +160,12 @@ Closed paths expose exact polynomial Bézier signed area through `signedPathArea
 tolerance-aware orientation through `classifyPathOrientation()`. Open paths are rejected, and
 near-zero closed geometry is reported as degenerate rather than assigned an arbitrary direction.
 
+`createAreaDetailed()` constructs an immutable signed Area only from closed, nondegenerate simple
+paths. Path direction is preserved, multiplicity is a positive integer, and incomplete
+self-intersection discovery prevents construction rather than being mistaken for proof of
+simplicity. Area construction does not yet perform lossy material projection or unresolved field
+algebra.
+
 The signed model is intentional. Negative intermediate geometry is
 meaningful for boolean algebra and must not be discarded merely because
 it does not currently represent visible positive material.

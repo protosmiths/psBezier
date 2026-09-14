@@ -203,6 +203,11 @@ loops” policy.
 Define the immutable signed-loop representation and lossless internal normalization before choosing
 a multi-loop reduction algorithm. Then resolve two-simple-loop cases with no boundary events.
 
+The immutable foundation is implemented: validated simple closed paths, preserved orientation,
+positive integer multiplicity, deterministic term ordering, and explicit invalid/incomplete
+self-intersection diagnostics. It deliberately performs no coincident compression or field
+operation yet.
+
 `MILESTONE9_AREA_ALGEBRA_DESIGN.md` specifies the proposed signed winding-field invariant and the
 complete ordinary-positive-loop truth table. Signed zero-intersection operations remain gated on an
 explicit Area-level algebra that proves subtraction-by-reversal for disjoint, containment, and
