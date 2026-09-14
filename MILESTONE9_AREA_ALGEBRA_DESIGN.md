@@ -114,7 +114,11 @@ of these geometry-only relationships:
 - `unresolved`.
 
 Full coincidence is established from complete overlap coverage, not inferred from a dense sequence
-of nearby point events. A finite overlap remains switching topology for corridor resolution even
+of nearby point events. Coverage is geometric and bidirectional across both circular parameter
+domains; control-point, knot, segment-count, seam, and parameterization equality are neither
+required nor evidence by themselves. Exact re-segmentation must therefore remain fully coincident,
+and sufficiently close but differently constructed boundaries may be tolerance-coincident once a
+complete coverage certificate establishes that fact. A finite overlap remains switching topology for corridor resolution even
 when it causes no net side change; unlike a point contact, its duplicated finite boundary may need
 one copy retained or both copies removed. Tangent/contact-only events are transparent to switching,
 so containment classifies their whole-loop relationship exactly as in the event-free case.

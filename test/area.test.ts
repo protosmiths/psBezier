@@ -7,6 +7,7 @@ import {
   createAreaDetailed,
   classifySimpleLoopPairRelationship,
   createToleranceContext,
+  extractPathInterval,
   point,
   type BezierPath,
   type Point,
@@ -57,6 +58,14 @@ function reversePath(path: BezierPath): BezierPath {
   const builder = new BezierPathBuilder(path.first.start);
   for (const segment of [...path.segments].reverse())
     builder.appendCubic(segment.control2, segment.control1, segment.start);
+  return builder.close().build();
+}
+
+function reseamPath(path: BezierPath, globalT: number): BezierPath {
+  const pieces = extractPathInterval(path, globalT, globalT, { fullCycle: true });
+  const first = pieces[0]!;
+  const builder = new BezierPathBuilder(first.start);
+  for (const piece of pieces) builder.appendCubic(piece.control1, piece.control2, piece.end);
   return builder.close().build();
 }
 
@@ -184,6 +193,24 @@ describe("simple-loop pair relationship precursor", () => {
     assert.equal(
       classifySimpleLoopPairRelationship(first, reversePath(square(0, 0, 2)), tolerance)
         .relationship,
+      "full-coincidence",
+    );
+  });
+
+  it("recognizes exact full coincidence across different seams and segmentation", () => {
+    const first = square(0, 0, 10);
+    const second = reseamPath(first, 1.37);
+    assert.notEqual(first.segmentCount, second.segmentCount);
+    assert.notDeepEqual(
+      first.segments.map((segment) => segment.start),
+      second.segments.map((segment) => segment.start),
+    );
+    assert.equal(
+      classifySimpleLoopPairRelationship(first, second, tolerance).relationship,
+      "full-coincidence",
+    );
+    assert.equal(
+      classifySimpleLoopPairRelationship(first, reversePath(second), tolerance).relationship,
       "full-coincidence",
     );
   });
