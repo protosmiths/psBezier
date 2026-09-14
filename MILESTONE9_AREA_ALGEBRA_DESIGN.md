@@ -101,6 +101,28 @@ representations use different loop decompositions.
 
 ## 2. Two simple loops with no boundary intersections
 
+### Pairwise topology precursor
+
+Before building a Boolean transition graph, classify the complete simple-loop pair into exactly one
+of these geometry-only relationships:
+
+- `full-coincidence`;
+- `zero-switch-disjoint`;
+- `zero-switch-first-inside-second`;
+- `zero-switch-second-inside-first`;
+- `switching-topology`;
+- `unresolved`.
+
+Full coincidence is established from complete overlap coverage, not inferred from a dense sequence
+of nearby point events. A finite overlap remains switching topology for corridor resolution even
+when it causes no net side change; unlike a point contact, its duplicated finite boundary may need
+one copy retained or both copies removed. Tangent/contact-only events are transparent to switching,
+so containment classifies their whole-loop relationship exactly as in the event-free case.
+
+Do not construct the transition graph for full-coincidence or zero-switch pairs. Conversely, never
+infer a zero-switch relationship from incomplete intersection, edge-classification, event-
+characterization, or containment evidence.
+
 ### Geometric relationship discovery
 
 For two simple closed loops with complete intersection discovery and no point or overlap events,

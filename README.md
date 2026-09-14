@@ -166,6 +166,11 @@ self-intersection discovery prevents construction rather than being mistaken for
 simplicity. Area construction does not yet perform lossy material projection or unresolved field
 algebra.
 
+`classifySimpleLoopPairRelationship()` is the geometry-only precursor to Area operations. It
+separates full coincidence, disjoint/contained zero-switch relationships, genuine switching
+topology, and unresolved evidence before a Boolean transition graph is constructed. Tangent-only
+contacts are zero-switch; finite overlaps still require corridor resolution.
+
 The signed model is intentional. Negative intermediate geometry is
 meaningful for boolean algebra and must not be discarded merely because
 it does not currently represent visible positive material.

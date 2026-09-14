@@ -5,6 +5,7 @@ import {
   BezierPathBuilder,
   createArea,
   createAreaDetailed,
+  classifySimpleLoopPairRelationship,
   createToleranceContext,
   point,
   type BezierPath,
@@ -78,6 +79,17 @@ describe("immutable signed Area foundation", () => {
     assert.ok(area.terms.every(Object.isFrozen));
   });
 
+  it("negates every signed AreaTerm property except multiplicity under reversal", () => {
+    const forwardPath = square(0, 0, 2);
+    const reverse = reversePath(forwardPath);
+    const forward = createArea([{ path: forwardPath, multiplicity: 3 }], tolerance).terms[0]!;
+    const reversed = createArea([{ path: reverse, multiplicity: 3 }], tolerance).terms[0]!;
+    assert.ok(Math.abs(reversed.signedArea + forward.signedArea) <= tolerance.coordinate);
+    assert.equal(reversed.orientationSign, -forward.orientationSign);
+    assert.equal(reversed.signedContribution, -forward.signedContribution);
+    assert.equal(reversed.multiplicity, forward.multiplicity);
+  });
+
   it("preserves disconnected and nested signed terms without normalization", () => {
     const outer = square(0, 0, 10);
     const hole = reversePath(square(2, 2, 3));
@@ -142,5 +154,59 @@ describe("immutable signed Area foundation", () => {
     assert.equal(report.area, null);
     assert.equal(report.complete, false);
     assert.ok(report.issues.some((value) => value.code === "incomplete-self-intersection-search"));
+  });
+});
+
+describe("simple-loop pair relationship precursor", () => {
+  it("classifies disjoint and contained zero-switch pairs", () => {
+    assert.equal(
+      classifySimpleLoopPairRelationship(square(0, 0), square(3, 0), tolerance).relationship,
+      "zero-switch-disjoint",
+    );
+    assert.equal(
+      classifySimpleLoopPairRelationship(square(2, 2), square(0, 0, 10), tolerance).relationship,
+      "zero-switch-first-inside-second",
+    );
+  });
+
+  it("treats an external tangent as zero-switch rather than walk topology", () => {
+    const report = classifySimpleLoopPairRelationship(square(0, 0), square(1, 1), tolerance);
+    assert.equal(report.relationship, "zero-switch-disjoint");
+    assert.ok(report.characterization?.events.every((event) => event.kind === "contact"));
+  });
+
+  it("recognizes full coincidence in either direction", () => {
+    const first = square(0, 0, 2);
+    assert.equal(
+      classifySimpleLoopPairRelationship(first, square(0, 0, 2), tolerance).relationship,
+      "full-coincidence",
+    );
+    assert.equal(
+      classifySimpleLoopPairRelationship(first, reversePath(square(0, 0, 2)), tolerance)
+        .relationship,
+      "full-coincidence",
+    );
+  });
+
+  it("sends genuine crossings to switching topology", () => {
+    const report = classifySimpleLoopPairRelationship(square(0, 0, 2), square(1, 1, 2), tolerance);
+    assert.equal(report.relationship, "switching-topology");
+  });
+
+  it("does not infer a relationship from exhausted discovery", () => {
+    const firstBuilder = new BezierPathBuilder(point(0, 0));
+    firstBuilder.appendCubic(point(0, 3), point(3, 3), point(3, 0));
+    firstBuilder.appendCubic(point(3, -3), point(0, -3), point(0, 0));
+    const secondBuilder = new BezierPathBuilder(point(0, 1));
+    secondBuilder.appendCubic(point(1, -2), point(2, 4), point(3, 1));
+    secondBuilder.appendCubic(point(2, 0), point(1, 2), point(0, 1));
+    const report = classifySimpleLoopPairRelationship(
+      firstBuilder.close().build(),
+      secondBuilder.close().build(),
+      tolerance,
+      { maxCells: 1 },
+    );
+    assert.equal(report.relationship, "unresolved");
+    assert.equal(report.complete, false);
   });
 });

@@ -228,6 +228,20 @@ describe("overlap and unresolved vertex topology", () => {
 });
 
 describe("whole-path intersection lifting", () => {
+  it("retains source path identity when a complete arrangement has no events", () => {
+    const first = square();
+    const secondBuilder = new BezierPathBuilder(point(3, 0));
+    let current = lineTo(secondBuilder, point(3, 0), point(4, 0));
+    current = lineTo(secondBuilder, current, point(4, 1));
+    current = lineTo(secondBuilder, current, point(3, 1));
+    lineTo(secondBuilder, current, point(3, 0));
+    const second = secondBuilder.close().build();
+    const report = intersectPathsDetailed(first, second, tolerance);
+    assert.equal(report.complete, true);
+    assert.deepEqual(report.arrangement?.paths, [first, second]);
+    assert.equal(report.arrangement?.events.length, 0);
+  });
+
   it("does not substitute analytic line parameters for merely near-canonical cubics", () => {
     const first = new BezierPathBuilder(point(-1, 0))
       .appendCubic(point(-1 / 3, 5e-9), point(1 / 3, -5e-9), point(1, 0))

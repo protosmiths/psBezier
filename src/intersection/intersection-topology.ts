@@ -218,6 +218,7 @@ export function overlapSeedFromSegmentResult(
 export function buildIntersectionArrangement(
   seeds: readonly IntersectionEventSeed[],
   overlapSeeds: readonly IntersectionOverlapSeed[] = [],
+  sourcePaths: readonly BezierPath[] = [],
 ): IntersectionArrangement {
   const events: IntersectionEvent[] = [];
   const incidences: ImmutableIntersectionIncidence[] = [];
@@ -270,7 +271,7 @@ export function buildIntersectionArrangement(
     return Object.freeze({ start, end, direction: seed.direction });
   });
   const arrangement = new ImmutableIntersectionArrangement(events, incidences, overlaps, [
-    ...pathGroups.keys(),
+    ...new Set([...sourcePaths, ...pathGroups.keys()]),
   ]);
   const readonlyPathIndex = new Map<BezierPath, readonly IntersectionIncidence[]>();
 

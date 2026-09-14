@@ -646,3 +646,23 @@ Keeping conventional mathematical signs reduces mental translation and hidden or
 reverses orientation. All pointer coordinates are immediately transformed through the exact
 inverse display-to-design transform before geometry, picking, dragging, snapping, or editing.
 Round-trip transforms and single-reflection orientation reversal are required metamorphic tests.
+
+------------------------------------------------------------------------
+
+## ADR-038 --- Classify complete loop-pair topology before Boolean walking
+
+**Decision:** Before constructing a Boolean transition graph, classify two simple loops as full
+coincidence, one of the resolved zero-switch containment relationships, switching topology, or
+unresolved. Contact-only events are transparent and use whole-loop containment. Any finite overlap
+continues to corridor resolution; only proven complete overlap coverage is full coincidence.
+
+**Reasoning:** Full coincidence has no valid starting frontier, and disjoint, nested, or
+tangent-only loops have no switching decision. Forcing them through an event walker creates missing
+start cases and can forget independent loops. Conversely, a finite duplicated boundary cannot be
+treated exactly like a point contact because union/intersection may retain one corridor copy or
+remove both.
+
+**Consequence:** The walker receives only genuine switching topology. Complete reports preserve
+source path identity even when an arrangement has zero events. Incomplete discovery,
+classification, characterization, or containment produces `unresolved`, never a guessed
+whole-loop relationship.

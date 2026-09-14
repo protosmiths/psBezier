@@ -208,6 +208,10 @@ positive integer multiplicity, deterministic term ordering, and explicit invalid
 self-intersection diagnostics. It deliberately performs no coincident compression or field
 operation yet.
 
+The topology-neutral pair precursor is also implemented. It separates full coincidence,
+event-free/contact-only containment relationships, genuine switching topology, and unresolved
+evidence before any transition graph is planned.
+
 `MILESTONE9_AREA_ALGEBRA_DESIGN.md` specifies the proposed signed winding-field invariant and the
 complete ordinary-positive-loop truth table. Signed zero-intersection operations remain gated on an
 explicit Area-level algebra that proves subtraction-by-reversal for disjoint, containment, and

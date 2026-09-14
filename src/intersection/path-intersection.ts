@@ -229,7 +229,9 @@ export function intersectPathsDetailed(
     second,
     selfIntersection,
     pairs: Object.freeze(pairs),
-    arrangement: complete ? buildIntersectionArrangement(lifted.seeds, lifted.overlaps) : null,
+    arrangement: complete
+      ? buildIntersectionArrangement(lifted.seeds, lifted.overlaps, [first, second])
+      : null,
     complete,
   });
 }
