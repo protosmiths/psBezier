@@ -260,6 +260,12 @@ oriented ordinary region. Positive result layers remain CCW; negative result lay
 CW when reconstructed. Geometrically coincident same-direction output layers may then be compressed
 into positive multiplicity, while opposite layers cancel only when the field algebra proves it.
 
+The initial two-term implementation compresses repeated outputs by `BezierPath` object identity.
+That is safe because cached level operations deliberately reuse their result path objects. It is
+not general geometric normalization. Independently produced paths with shifted seams, unequal
+exact subdivision, or other representations may be combined or cancelled only after the
+full-coincidence classifier proves bidirectional geometric coverage.
+
 A finite collection of closed oriented loops has winding zero at infinity. Consequently every
 positive superlevel and negative sublevel used above is bounded; level reduction never requires an
 explicit infinite exterior region or an open result boundary.
@@ -270,6 +276,43 @@ noncoincident boundaries do not require a Boolean switch for addition.
 
 This level-set construction is the general integer-field orchestrator. The existing Milestone 8
 walk remains unchanged as its ordinary `0/1` boundary primitive.
+
+### Multi-term Areas require collective level extraction
+
+Do not fold `join` or `meet` over individual `AreaTerm`s. A term is an additive field contribution,
+not an independently filled region. Pairwise term folding can therefore become order-dependent and
+is incorrect for holes, nested multiplicities, and intersecting positive/negative contributions.
+
+Before combining general Areas, derive each occupied ordinary level region from the complete
+collective winding field:
+
+```text
+Area terms
+  -> complete arrangement of their simple boundaries
+  -> field value on each arrangement region
+  -> bounded ordinary regions {W >= k} and {W <= -k}
+  -> simple oriented level-boundary loops
+```
+
+At a generic incidence-split source edge, evaluate the collective field immediately on both sides.
+For a requested level, retain the edge exactly when threshold membership differs across it. Direct
+the edge so the selected ordinary level region has positive CCW orientation. Enumerate all balanced
+cycles; unresolved field samples, incomplete intersections, higher-valence ambiguity, or an
+unbalanced selected graph make that level explicitly incomplete.
+
+Once both input Areas have proven ordinary level regions, multi-Area `join` and `meet` use the same
+level table above and the existing ordinary-region Boolean primitive. This is associative at the
+semantic level. Diagnostics must still expose the input Area, sign, and level whose extraction or
+Boolean combination failed.
+
+General lossless normalization is a separate pass:
+
+1. group only boundaries proven fully coincident;
+2. translate orientation and multiplicity into signed contributions;
+3. sum the contributions;
+4. remove a group only when its sum is zero;
+5. retain one deterministic geometrically equivalent owner with the resulting orientation and
+   positive multiplicity.
 
 ## 3. Candidate signed winding-field algebra
 
