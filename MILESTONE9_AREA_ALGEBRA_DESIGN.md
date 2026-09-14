@@ -232,6 +232,41 @@ fields (or an equivalent exact boundary rule) that proves:
 
 The field algebra below supplies a candidate resolution.
 
+### Integer level-set reduction for switching topology
+
+The Milestone 8 transition walker constructs the boundary of an ordinary `0/1` region. It must not
+be called once and treated as though it directly represents arbitrary integer field levels. For
+example, if overlapping positive terms contribute `2` and `1`, their `join` contains a level-1
+union boundary and a level-2 boundary contributed by the first term. One cycle with one attached
+multiplicity cannot express both contours.
+
+Every integer field has the finite decomposition
+
+```text
+W = sum(k >= 1, indicator(W >= k))
+  - sum(k >= 1, indicator(W <= -k)).
+```
+
+Therefore `join=max` and `meet=min` reduce to ordinary positive-region operations independently at
+each occupied level:
+
+| Result | Positive superlevel `{W >= k}` | Negative sublevel `{W <= -k}` |
+| --- | --- | --- |
+| `join(A,B)` | union | intersection |
+| `meet(A,B)` | intersection | union |
+
+Each participating level-set boundary is presented to the existing binary walker as a positively
+oriented ordinary region. Positive result layers remain CCW; negative result layers are reversed to
+CW when reconstructed. Geometrically coincident same-direction output layers may then be compressed
+into positive multiplicity, while opposite layers cancel only when the field algebra proves it.
+
+Signed `add` is different and simpler. It is linear boundary accumulation: retain both operands'
+oriented contributions and perform only lossless coincident normalization. Intersections between
+noncoincident boundaries do not require a Boolean switch for addition.
+
+This level-set construction is the general integer-field orchestrator. The existing Milestone 8
+walk remains unchanged as its ordinary `0/1` boundary primitive.
+
 ## 3. Candidate signed winding-field algebra
 
 For Areas `A` and `B`, define operations pointwise on their integer winding fields:
