@@ -159,7 +159,6 @@ Core geometry uses Cartesian design coordinates where Y increases upward:
 Closed paths expose exact polynomial Bézier signed area through `signedPathArea()` and
 tolerance-aware orientation through `classifyPathOrientation()`. Open paths are rejected, and
 near-zero closed geometry is reported as degenerate rather than assigned an arbitrary direction.
--   area to the right of the direction of travel is positive.
 
 The signed model is intentional. Negative intermediate geometry is
 meaningful for boolean algebra and must not be discarded merely because
