@@ -215,6 +215,28 @@ describe("simple-loop pair relationship precursor", () => {
     );
   });
 
+  it("preserves a finite overlap across either circular path seam", () => {
+    const first = square(0, 0, 2);
+    const second = square(2, 0, 2);
+    const cases = [
+      { label: "neither", first, second },
+      { label: "first only", first: reseamPath(first, 1.5), second },
+      { label: "second only", first, second: reseamPath(second, 3.5) },
+      {
+        label: "both",
+        first: reseamPath(first, 1.5),
+        second: reseamPath(second, 3.5),
+      },
+    ];
+
+    for (const value of cases) {
+      const report = classifySimpleLoopPairRelationship(value.first, value.second, tolerance);
+      assert.equal(report.relationship, "switching-topology", value.label);
+      assert.equal(report.complete, true, value.label);
+      assert.ok((report.intersections.arrangement?.overlaps.length ?? 0) > 0, value.label);
+    }
+  });
+
   it("sends genuine crossings to switching topology", () => {
     const report = classifySimpleLoopPairRelationship(square(0, 0, 2), square(1, 1, 2), tolerance);
     assert.equal(report.relationship, "switching-topology");
