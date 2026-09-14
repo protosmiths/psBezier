@@ -295,6 +295,19 @@ export function extractPathInterval(
   return Object.freeze([...forward].reverse().map(reverseCubic));
 }
 
+/** Reverse a path while preserving its exact cubic geometry and closed/open topology. */
+export function reverseBezierPath(path: BezierPath): BezierPath {
+  const pieces = [...path.segments]
+    .reverse()
+    .map((segment) => reverseCubic(pathBezierAsCubic(segment)));
+  const first = pieces[0];
+  if (first === undefined) throw new Error("cannot reverse an empty path");
+  const builder = new BezierPathBuilder(first.start);
+  for (const piece of pieces) builder.appendCubic(piece.control1, piece.control2, piece.end);
+  if (path.isClosed) builder.close();
+  return builder.build();
+}
+
 interface SegmentDraft {
   start: Point;
   control1: Point;

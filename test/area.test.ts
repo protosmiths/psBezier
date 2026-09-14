@@ -9,7 +9,9 @@ import {
   createToleranceContext,
   extractPathInterval,
   point,
+  operateAreaTermsDetailed,
   resolveWholeLoopOperation,
+  signedPathArea,
   type AreaTerm,
   type BezierPath,
   type Point,
@@ -370,5 +372,84 @@ describe("integer winding level-set algebra", () => {
         assert.equal(meet, Math.min(first, second), `meet(${first}, ${second})`);
       }
     }
+  });
+});
+
+describe("two-term integer level geometry orchestration", () => {
+  function areaTerm(path: BezierPath, multiplicity: number): AreaTerm {
+    return createArea([{ path, multiplicity }], tolerance).terms[0]!;
+  }
+
+  function sortedSignedAreas(report: ReturnType<typeof operateAreaTermsDetailed>): number[] {
+    return report.area!.terms.map((term) => signedPathArea(term.path)).sort((a, b) => a - b);
+  }
+
+  function assertSignedAreas(
+    report: ReturnType<typeof operateAreaTermsDetailed>,
+    expected: readonly number[],
+  ): void {
+    const actual = sortedSignedAreas(report);
+    assert.equal(actual.length, expected.length);
+    actual.forEach((value, index) =>
+      assert.ok(Math.abs(value - expected[index]!) <= tolerance.coordinate),
+    );
+  }
+
+  it("constructs distinct level-1 union and level-2 source boundaries for join(2,1)", () => {
+    const first = areaTerm(square(0, 0, 2), 2);
+    const second = areaTerm(square(1, 1, 2), 1);
+    const report = operateAreaTermsDetailed(first, second, "join", tolerance);
+    assert.equal(report.complete, true, JSON.stringify(report.issues));
+    assert.deepEqual(
+      report.levels.map((level) => [level.sign, level.level, level.operation, level.paths.length]),
+      [
+        [1, 1, "union", 1],
+        [1, 2, "union", 1],
+      ],
+    );
+    assertSignedAreas(report, [4, 7]);
+  });
+
+  it("constructs only the shared level for meet(2,1)", () => {
+    const first = areaTerm(square(0, 0, 2), 2);
+    const second = areaTerm(square(1, 1, 2), 1);
+    const report = operateAreaTermsDetailed(first, second, "meet", tolerance);
+    assert.equal(report.complete, true, JSON.stringify(report.issues));
+    assertSignedAreas(report, [1]);
+  });
+
+  it("applies the dual level operations to negative fields", () => {
+    const first = areaTerm(reversePath(square(0, 0, 2)), 2);
+    const second = areaTerm(reversePath(square(1, 1, 2)), 1);
+    const join = operateAreaTermsDetailed(first, second, "join", tolerance);
+    const meet = operateAreaTermsDetailed(first, second, "meet", tolerance);
+    assert.equal(join.complete, true, JSON.stringify(join.issues));
+    assert.equal(meet.complete, true, JSON.stringify(meet.issues));
+    assertSignedAreas(join, [-1]);
+    assertSignedAreas(meet, [-7, -4]);
+  });
+
+  it("suppresses the opposite-sign operand selected out by join or meet", () => {
+    const positive = areaTerm(square(0, 0, 2), 2);
+    const negative = areaTerm(reversePath(square(1, 1, 2)), 1);
+    const join = operateAreaTermsDetailed(positive, negative, "join", tolerance);
+    const meet = operateAreaTermsDetailed(positive, negative, "meet", tolerance);
+    assert.equal(join.complete, true, JSON.stringify(join.issues));
+    assert.equal(meet.complete, true, JSON.stringify(meet.issues));
+    assert.equal(join.area!.terms.length, 1);
+    assert.equal(join.area!.terms[0]!.signedContribution, 2);
+    assertSignedAreas(meet, [-4]);
+  });
+
+  it("adds oriented contributions without switching their crossing boundaries", () => {
+    const first = areaTerm(square(0, 0, 2), 2);
+    const second = areaTerm(reversePath(square(1, 1, 2)), 1);
+    const report = operateAreaTermsDetailed(first, second, "add", tolerance);
+    assert.equal(report.complete, true, JSON.stringify(report.issues));
+    assert.equal(report.levels.length, 0);
+    assert.deepEqual(
+      report.area!.terms.map((term) => term.signedContribution).sort((a, b) => a - b),
+      [-1, 2],
+    );
   });
 });

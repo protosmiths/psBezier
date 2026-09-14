@@ -7,6 +7,7 @@ export {
   normalizeGlobalT,
   pathIntervalGlobalTAtFraction,
   pathBezierAsCubic,
+  reverseBezierPath,
 } from "./bezier-path.js";
 export type {
   BezierPath,
