@@ -182,6 +182,24 @@ geometric relationship:
 
 Orientation and operation semantics are applied only after this relationship is established.
 
+### Geometry-free whole-loop field jumps
+
+Let `a` and `b` be the signed contributions of the two terms and let `F` be `add`, `max`
+(`join`), or `min` (`meet`). The whole-loop resolver evaluates the result field on the regions
+adjacent to each source boundary. A source boundary is retained exactly when those two values
+differ; its output multiplicity is the absolute field jump. Monotonicity guarantees that a
+surviving `join` or `meet` boundary keeps its source orientation.
+
+- full coincidence: one deterministic source represents `F(a,b)`;
+- disjoint: A has jump `F(a,0)` and B has jump `F(0,b)`;
+- A inside B: B has jump `F(0,b)` and A has jump `F(a,b)-F(0,b)`;
+- B inside A: A has jump `F(a,0)` and B has jump `F(a,b)-F(a,0)`.
+
+Zero jumps suppress the corresponding boundary. A nonzero coincident result uses one complete
+source boundary with multiplicity `abs(F(a,b))`; opposite contributions cancel naturally for
+`add`. These formulas are the operation table—orientation combinations are tests of the formulas,
+not separately authored cases.
+
 ### Why the local walk rule is not the Area operator
 
 A negative loop is a contribution to a signed Area field, not automatically an independently filled

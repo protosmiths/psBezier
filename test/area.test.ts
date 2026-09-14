@@ -9,6 +9,8 @@ import {
   createToleranceContext,
   extractPathInterval,
   point,
+  resolveWholeLoopOperation,
+  type AreaTerm,
   type BezierPath,
   type Point,
 } from "../src/index.js";
@@ -257,5 +259,92 @@ describe("simple-loop pair relationship precursor", () => {
     );
     assert.equal(report.relationship, "unresolved");
     assert.equal(report.complete, false);
+  });
+});
+
+describe("whole-loop signed field operation table", () => {
+  const operations = ["add", "join", "meet"] as const;
+  const relationships = [
+    "full-coincidence",
+    "zero-switch-disjoint",
+    "zero-switch-first-inside-second",
+    "zero-switch-second-inside-first",
+  ] as const;
+
+  function fieldOperation(operation: (typeof operations)[number], first: number, second: number) {
+    return operation === "add"
+      ? first + second
+      : operation === "join"
+        ? Math.max(first, second)
+        : Math.min(first, second);
+  }
+
+  function term(path: BezierPath, multiplicity: number): AreaTerm {
+    return createArea([{ path, multiplicity }], tolerance).terms[0]!;
+  }
+
+  it("derives every sign and multiplicity case from field jumps", () => {
+    for (const firstSign of [-1, 1] as const) {
+      for (const secondSign of [-1, 1] as const) {
+        for (const firstMultiplicity of [1, 2, 3]) {
+          for (const secondMultiplicity of [1, 2, 3]) {
+            const firstPath = firstSign === 1 ? square(2, 2, 2) : reversePath(square(2, 2, 2));
+            const secondPath = secondSign === 1 ? square(0, 0, 6) : reversePath(square(0, 0, 6));
+            const first = term(firstPath, firstMultiplicity);
+            const second = term(secondPath, secondMultiplicity);
+            const a = first.signedContribution;
+            const b = second.signedContribution;
+
+            for (const operation of operations) {
+              for (const relationship of relationships) {
+                const report = resolveWholeLoopOperation(first, second, relationship, operation);
+                assert.equal(report.complete, true, `${operation} ${relationship} ${a} ${b}`);
+                const actualFirst =
+                  report.terms.find((value) => value.source === "first")?.fieldJump ?? 0;
+                const actualSecond =
+                  report.terms.find((value) => value.source === "second")?.fieldJump ?? 0;
+
+                if (relationship === "full-coincidence") {
+                  assert.equal(
+                    actualFirst + actualSecond,
+                    fieldOperation(operation, a, b),
+                    `${operation} ${relationship} ${a} ${b}`,
+                  );
+                  assert.ok(report.terms.length <= 1);
+                } else {
+                  let expectedFirst: number;
+                  let expectedSecond: number;
+                  if (relationship === "zero-switch-disjoint") {
+                    expectedFirst = fieldOperation(operation, a, 0);
+                    expectedSecond = fieldOperation(operation, 0, b);
+                  } else if (relationship === "zero-switch-first-inside-second") {
+                    const middle = fieldOperation(operation, 0, b);
+                    expectedFirst = fieldOperation(operation, a, b) - middle;
+                    expectedSecond = middle;
+                  } else {
+                    const middle = fieldOperation(operation, a, 0);
+                    expectedFirst = middle;
+                    expectedSecond = fieldOperation(operation, a, b) - middle;
+                  }
+                  assert.equal(actualFirst, expectedFirst);
+                  assert.equal(actualSecond, expectedSecond);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("defers switching and unresolved topology without manufacturing geometry", () => {
+    const first = term(square(0, 0, 2), 1);
+    const second = term(square(1, 1, 2), 1);
+    for (const relationship of ["switching-topology", "unresolved"] as const) {
+      const report = resolveWholeLoopOperation(first, second, relationship, "join");
+      assert.equal(report.complete, false);
+      assert.deepEqual(report.terms, []);
+      assert.equal(report.issues.length, 1);
+    }
   });
 });

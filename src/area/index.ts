@@ -1,5 +1,6 @@
 export { createArea, createAreaDetailed } from "./area.js";
 export { classifySimpleLoopPairRelationship } from "./loop-pair-relationship.js";
+export { resolveWholeLoopOperation } from "./whole-loop-operation.js";
 export type {
   Area,
   AreaConstructionIssue,
@@ -14,3 +15,10 @@ export type {
   SimpleLoopPairRelationship,
   SimpleLoopPairRelationshipReport,
 } from "./loop-pair-relationship.js";
+export type {
+  SignedAreaBinaryOperation,
+  WholeLoopOperationIssue,
+  WholeLoopOperationIssueCode,
+  WholeLoopOperationReport,
+  WholeLoopTermSelection,
+} from "./whole-loop-operation.js";
