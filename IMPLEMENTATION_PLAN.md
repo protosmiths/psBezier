@@ -218,7 +218,8 @@ forward traversal; optional positive integer multiplicity is magnitude only. Neg
 paths. Add exact polynomial Bézier signed-area integration before Area construction so completed
 loops can be classified and checked without control-polygon approximation.
 
-Core geometry uses Cartesian design space (X right, Y up): CCW is positive and CW is negative.
+Exact polynomial cubic/path signed-area integration and tolerance-aware closed-path orientation are
+implemented. Core geometry uses Cartesian design space (X right, Y up): CCW is positive and CW is negative.
 Rendering uses an explicit affine design-to-display transform, normally with a negative Y scale;
 interaction applies its exact inverse before geometry processing.
 

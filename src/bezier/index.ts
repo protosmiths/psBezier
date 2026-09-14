@@ -3,6 +3,7 @@ export {
   cubicBoundingBox,
   cubicDerivative,
   cubicSecondDerivative,
+  cubicSignedArea,
   cubicThirdDerivative,
   evaluateCubic,
   extremaParameters,

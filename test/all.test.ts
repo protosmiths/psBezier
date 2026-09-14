@@ -14,3 +14,4 @@ import "./milestone7-metamorphic.test.js";
 import "./intersection-topology.test.js";
 import "./numeric.test.js";
 import "./path.test.js";
+import "./signed-area.test.js";

@@ -205,6 +205,35 @@ export function transformCubic(transform: AffineTransform, curve: CubicBezier): 
   );
 }
 
+function powerCoefficients(p0: number, p1: number, p2: number, p3: number): readonly number[] {
+  return Object.freeze([p0, 3 * (p1 - p0), 3 * (p2 - 2 * p1 + p0), p3 - 3 * p2 + 3 * p1 - p0]);
+}
+
+/**
+ * Exact polynomial contribution to 1/2 integral(x dy - y dx) over this cubic.
+ *
+ * An open cubic's contribution depends on the coordinate origin. Contributions become
+ * translation-invariant when summed around a closed path.
+ */
+export function cubicSignedArea(curve: CubicBezier): number {
+  const x = powerCoefficients(curve.start.x, curve.control1.x, curve.control2.x, curve.end.x);
+  const y = powerCoefficients(curve.start.y, curve.control1.y, curve.control2.y, curve.end.y);
+  let sum = 0;
+  let compensation = 0;
+  for (let firstDegree = 0; firstDegree <= 3; firstDegree += 1) {
+    for (let secondDegree = 1; secondDegree <= 3; secondDegree += 1) {
+      const term =
+        (secondDegree * (x[firstDegree]! * y[secondDegree]! - y[firstDegree]! * x[secondDegree]!)) /
+        (firstDegree + secondDegree);
+      const adjusted = term - compensation;
+      const next = sum + adjusted;
+      compensation = next - sum - adjusted;
+      sum = next;
+    }
+  }
+  return sum / 2;
+}
+
 function quadraticRoots(aValue: number, bValue: number, cValue: number): readonly number[] {
   const scale = Math.max(Math.abs(aValue), Math.abs(bValue), Math.abs(cValue));
   if (scale === 0) return Object.freeze([]);
