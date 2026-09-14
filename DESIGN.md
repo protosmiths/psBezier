@@ -182,8 +182,8 @@ opposite Area's signed membership.
 
 Loop orientation is a separate sign:
 
-- clockwise: `+1`;
-- counter-clockwise: `-1`.
+- counter-clockwise: `+1`;
+- clockwise: `-1`.
 
 For a signed loop walk, derive rather than store:
 
@@ -218,13 +218,16 @@ the active tolerance. `BezierPath` itself remains unrestricted and may self-inte
 self-intersecting path into Area boundaries requires an explicit semantic policy rather than silent
 repair during Boolean traversal.
 
-With SVG/screen coordinates (Y down):
-- CW contributes positive area;
-- CCW contributes negative area.
+Core geometry uses Cartesian design coordinates (X right, Y up):
+- CCW contributes positive area;
+- CW contributes negative area.
+
+SVG, Canvas, and raster coordinates are display-space concerns. A renderer receives an explicit
+orientation-reversing affine view transform; display coordinates do not alter kernel semantics.
 
 As a boundary is traversed, area to the right is positive.
 
-Area may contain solids, holes, disconnected components, and signed/negative intermediate regions required by boolean algebra. A CW loop inside a CCW loop can define a meaningful negative annulus and must not be normalized away merely because it currently contains no positive material.
+Area may contain solids, holes, disconnected components, and signed/negative intermediate regions required by boolean algebra. A CCW loop inside a CW loop can define a meaningful positive island within negative geometry and must not be normalized away merely because it currently contains no visible positive-material interpretation.
 
 Exact signed normalization remains an open design question; normalization must preserve meaningful signed geometry.
 

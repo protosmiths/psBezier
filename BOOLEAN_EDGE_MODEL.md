@@ -43,8 +43,8 @@ intersection) and can invalidate an otherwise correct local topology test.
 
 Loop orientation is a separate sign:
 
-- CW: `orientationSign = +1`
-- CCW: `orientationSign = -1`
+- CCW: `orientationSign = +1`
+- CW: `orientationSign = -1`
 
 Define the effective state used by a signed loop walk as:
 
@@ -54,7 +54,7 @@ This value should normally be derived rather than stored independently.
 
 Do **not** physically swap stored `INNER` and `OUTER` classifications when a loop is reversed. Doing so would destroy the meaning of the local balance invariant.
 
-For example, after reversing B in `A - B`, a geometrically INNER outgoing edge on CCW B has:
+For example, after reversing B in `A - B`, a geometrically INNER outgoing edge on CW B has:
 
 `(-1) * (-1) = +1`
 
@@ -70,7 +70,7 @@ Area-wide signed membership, holes, disconnected components, normalization, zero
 
 Before implementing the final boolean walker, test the model against at least:
 
-- two overlapping CW loops for union and intersection;
+- two overlapping CCW loops for union and intersection;
 - `A - B` implemented by reversing B;
 - same-direction and opposite-direction coincident sections;
 - a solid with a hole intersecting another loop;

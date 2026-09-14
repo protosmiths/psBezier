@@ -14,8 +14,8 @@ collection defines an integer-valued signed winding field over points not on its
 
 where a loop contributes:
 
-- `+m` when `P` is inside a clockwise loop term of positive multiplicity `m`;
-- `-m` when `P` is inside a counter-clockwise loop term of positive multiplicity `m`;
+- `+m` when `P` is inside a counter-clockwise loop term of positive multiplicity `m`;
+- `-m` when `P` is inside a clockwise loop term of positive multiplicity `m`;
 - `0` when `P` is outside the loop.
 
 This is not merely a union of independently filled paths. Loop ordering has no semantic meaning,
@@ -23,10 +23,10 @@ but orientation, nesting, and multiplicity do.
 
 Examples:
 
-- one clockwise loop produces field `+1` in its interior;
-- a counter-clockwise loop nested inside it reduces the field to `0` in the hole;
-- a clockwise loop nested inside that hole restores field `+1` on an island;
-- a counter-clockwise loop outside all positive loops produces field `-1`, which is meaningful
+- one counter-clockwise loop produces field `+1` in its interior;
+- a clockwise loop nested inside it reduces the field to `0` in the hole;
+- a counter-clockwise loop nested inside that hole restores field `+1` on an island;
+- a clockwise loop outside all positive loops produces field `-1`, which is meaningful
   signed geometry even if an output/rendering policy currently shows only positive material.
 
 The winding field is the preserved mathematical value. “Visible material,” manufacturing output,
@@ -127,7 +127,7 @@ tangent-only relationships.
 
 ### Positive-loop truth table
 
-The following table is complete for two clockwise (`+1`) simple loops interpreted as ordinary
+The following table is complete for two counter-clockwise (`+1`) simple loops interpreted as ordinary
 positive solids:
 
 | Relationship | Union result | Intersection result |
@@ -343,8 +343,8 @@ No additional cross product belongs in the walker.
 At every positively characterized transverse binary event, derive the operation exits in two
 independent ways:
 
-1. **Local topology.** Cyclically order the two outgoing directed branches. In screen-coordinate
-   orientation, the clockwise-most exit bounds the local intersection of the directed positive
+1. **Local topology.** Cyclically order the two outgoing directed branches in Cartesian design
+   space. The clockwise-most exit bounds the local intersection of the directed positive
    sides and the counter-clockwise-most exit bounds their local union.
 2. **Classified state.** Derive the exits from each branch's loop-relative `INNER`/`OUTER` state
    combined with its stored path orientation through `effectiveState = rawState *
@@ -365,8 +365,10 @@ The transition resolver follows this contract:
 | strong | strong | disagree | invalid/unresolved |
 | weak/inconclusive | weak/inconclusive | n/a | refine or fail explicitly |
 
-The two methods are corroborating derivations, not an arbitrary primary rule plus fallback. Never
-silently choose between two confident disagreements. A disagreement can expose a misclassified
+The two methods are corroborating only after the Area operation defines how positive-side region
+topology maps to signed boundary roles. They coincide directly for ordinary equally oriented
+positive loops, but not automatically for mixed-orientation signed operations such as subtraction.
+Never silently choose between two confident disagreements where agreement is required. A disagreement can expose a misclassified
 edge, incorrect path orientation, reversed/unstable tangent, bad cyclic ordering, or an event that
 was incorrectly characterized as transverse.
 
@@ -390,18 +392,18 @@ Contacts are excluded because they are transparent rather than switching events.
 frontiers, corners without four well-conditioned branches, stationary occurrences, unresolved
 events, and higher-valence vertices require their own validation rules.
 
-For subtraction of clockwise A and B, negating B reverses it to counter-clockwise. The useful
+For subtraction of counter-clockwise A and B, negating B reverses it to clockwise. The useful
 equivalence is:
 
-- clockwise `OUTER`: `+1 * +1 = +1`;
-- counter-clockwise `INNER`: `-1 * -1 = +1`.
+- counter-clockwise `OUTER`: `+1 * +1 = +1`;
+- clockwise `INNER`: `-1 * -1 = +1`.
 
 Reversed B's required cutting boundary therefore points forward toward its next incidence. Forcing
-its geometry back to clockwise and storing a negative coefficient would lose that operational
+its geometry back to counter-clockwise and storing a negative coefficient would lose that operational
 fact and require a separate backward-traversal rule.
 
 Steve's two-crossing picture gives the geometric explanation. Let A and B begin as overlapping
-clockwise positive loops, then reverse B for `A-B`:
+counter-clockwise positive loops, then reverse B for `A-B`:
 
 | Crossing | Raw outgoing branches | A effective state | reversed B effective state | Positive boundary exit |
 | --- | --- | ---: | ---: | --- |
@@ -441,12 +443,16 @@ The integrand is polynomial, so the cubic contribution can be evaluated exactly 
 point arithmetic and path area is the sum of its cubic contributions. A near-zero result is
 degenerate/unresolved at the Area tolerance.
 
-With numeric coordinates whose Y axis points down, the visually clockwise example
-`(0,0) -> (1,0) -> (1,1) -> (0,1)` makes the integral above positive. Therefore, if psBezier uses
-that formula without an extra sign inversion:
+With Cartesian design coordinates whose Y axis points up, the example
+`(0,0) -> (1,0) -> (1,1) -> (0,1)` is counter-clockwise and makes the integral above positive.
+Therefore:
 
-- positive signed area means clockwise in screen coordinates;
-- negative signed area means counter-clockwise.
+- positive signed area means counter-clockwise;
+- negative signed area means clockwise.
+
+SVG, Canvas, and raster rendering apply an explicit affine view transform. A negative Y scale
+reverses orientation at the display boundary without changing the source Area's design-space
+meaning. Pointer coordinates take the exact inverse transform before entering geometry logic.
 
 Name and test this convention explicitly; do not import the opposite Y-up sign rule accidentally.
 The post-walk signed-area orientation must agree with the direction implied by every retained field

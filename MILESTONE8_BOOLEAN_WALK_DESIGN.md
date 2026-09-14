@@ -81,7 +81,7 @@ The adjacency may wrap across whatever ray was chosen as the beginning of a line
 path is reversed, its entrance and exit exchange, but the two exits at a transverse crossing remain
 cyclically adjacent.
 
-For two clockwise positive loops, the two adjacent exits can be understood geometrically as the
+For two counter-clockwise positive loops, the two adjacent exits can be understood geometrically as the
 intersection-side and union-side boundaries. With a fixed screen-coordinate convention, the more
 clockwise exit bounds the intersection and the more counter-clockwise exit bounds the union. The
 existing `rawState * orientationSign` rule is the orientation-aware algebraic encoding of this

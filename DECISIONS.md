@@ -354,15 +354,15 @@ intersection under configured tolerance.
 **Decision:** An Area contains closed immutable paths whose direction
 carries signed meaning.
 
-With screen/SVG coordinates (Y down): - CW contributes positive area; -
-CCW contributes negative area; - area to the right of travel is
+With Cartesian design coordinates (Y up): - CCW contributes positive area; -
+CW contributes negative area; - area to the left of positive traversal is
 positive.
 
 **Reasoning:** Direction provides a unified model for solids, holes, and
 subtraction.
 
-**Consequence:** A CW loop inside a CCW loop can represent a meaningful
-negative annulus. It must not be discarded merely because the signed
+**Consequence:** Oppositely oriented and negative-only loops can represent meaningful
+signed geometry. They must not be discarded merely because the signed
 geometry does not currently correspond to visible positive material.
 
 ------------------------------------------------------------------------
@@ -504,7 +504,7 @@ that is not present in the endpoint matrices.
 ## ADR-030 --- Loop orientation derives effective walk state
 
 **Decision:** Keep loop orientation separate from raw loop-relative edge
-classification. With clockwise orientation `+1` and counter-clockwise
+classification. With counter-clockwise orientation `+1` and clockwise
 orientation `-1`, derive:
 
 `effectiveWalkState = geometricState * orientationSign`
@@ -562,7 +562,7 @@ the sign into a detached coefficient.
 
 **Reasoning:** Path direction is operational in Boolean traversal. In subtraction, reversing B both
 negates its winding contribution and makes the required cutting branch point forward toward the
-next incidence. A counter-clockwise INNER edge and clockwise OUTER edge have the same positive
+next incidence. A clockwise INNER edge and counter-clockwise OUTER edge have the same positive
 effective state.
 
 **Consequence:** Boolean traversal always follows the stored direction of a selected source path.
@@ -607,14 +607,18 @@ exact tangencies, corners, stationary branches, overlaps, or higher-valence vert
 ## ADR-036 --- Transverse Boolean exits have two confidence-aware derivations
 
 **Decision:** At every positively characterized transverse binary event, independently derive
-union/intersection exits from cyclic outgoing-branch order and from classified effective edge
-state. Retain the conditioning and evidence for both derivations. Require agreement when both are
-strong; allow one to resolve the transition only when the other is explicitly weak or
-inconclusive. Two strong disagreements and two weak derivations remain unresolved.
+positive-side region exits from cyclic outgoing-branch order and signed boundary roles from
+classified effective edge state. Retain the conditioning and evidence for both derivations. When
+the Area operation supplies a mapping proving that the two derivations should select the same
+exit, require agreement if both are strong; allow one to resolve the transition only when the
+other is explicitly weak or inconclusive. Two strong disagreements and two weak derivations remain
+unresolved.
 
-**Reasoning:** Directed local topology already encodes the operation wedges without requiring a
-separate whole-loop orientation calculation, while loop-relative containment classification plus
-stored orientation derives the same transition through a numerically independent route. Near a
+**Reasoning:** Directed local topology already encodes positive-side operation wedges without
+requiring a separate whole-loop orientation calculation, while loop-relative containment
+classification plus stored orientation derives signed boundary role through a numerically
+independent route. They coincide for ordinary equally oriented positive loops, but mixed
+orientation/signed operations require an explicit semantic mapping. Near a
 shallow crossing, branch ordering may be weak while classification remains clear; difficult
 containment sampling can produce the reverse situation. Confident disagreement exposes a defect
 such as a misclassified edge, unstable branch order, incorrect orientation, bad tangent, or wrong
@@ -624,3 +628,21 @@ event characterization.
 records, their agreement, and the final resolution source. The implementation never silently
 chooses between conflicting strong answers. Contacts remain transparent and are not passed through
 this switching invariant.
+
+------------------------------------------------------------------------
+
+## ADR-037 --- Core geometry uses Cartesian design coordinates
+
+**Decision:** psBezier geometry uses Cartesian design space: X increases right, Y increases up,
+positive cross product is counter-clockwise, positive signed area is counter-clockwise, and
+`orientationSign` is `+1` for CCW and `-1` for CW. Display coordinate systems are reached only
+through explicit affine transforms.
+
+**Reasoning:** The registration masters and Steve's engineering workflows are naturally Cartesian.
+SVG or Canvas serialization does not require the geometry kernel to inherit their downward Y axis.
+Keeping conventional mathematical signs reduces mental translation and hidden orientation errors.
+
+**Consequence:** A design-to-display view normally contains a negative Y scale and therefore
+reverses orientation. All pointer coordinates are immediately transformed through the exact
+inverse display-to-design transform before geometry, picking, dragging, snapping, or editing.
+Round-trip transforms and single-reflection orientation reversal are required metamorphic tests.

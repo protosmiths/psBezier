@@ -90,6 +90,25 @@ describe("affine construction and application", () => {
     assert.equal(determinant(rotation(0.75)), 1);
   });
 
+  it("round-trips a centered Cartesian design-to-display view", () => {
+    const designCenter = point(125, -40);
+    const displayCenter = point(400, 300);
+    const designToDisplay = compose(
+      translation(vector(displayCenter.x, displayCenter.y)),
+      compose(scale(8, -8), translation(vector(-designCenter.x, -designCenter.y))),
+    );
+    const displayToDesign = tryInverse(designToDisplay, tolerance);
+    if (displayToDesign === null) assert.fail("view transform should be invertible");
+
+    assertPointNear(transformPoint(designToDisplay, designCenter), displayCenter);
+    const designPoint = point(127, -37);
+    assertPointNear(
+      transformPoint(displayToDesign, transformPoint(designToDisplay, designPoint)),
+      designPoint,
+    );
+    assert.ok(determinant(designToDisplay) < 0, "the display Y flip must reverse orientation");
+  });
+
   it("creates immutable transforms without mutating operands", () => {
     const left = translation(vector(2, 3));
     const right = shear(0.25);

@@ -147,10 +147,14 @@ geometry.
 
 An `Area` contains one or more closed immutable `BezierPath`s.
 
-With screen/SVG coordinates where Y increases downward:
+Core geometry uses Cartesian design coordinates where Y increases upward:
 
--   clockwise boundaries contribute positive area;
--   counter-clockwise boundaries contribute negative area;
+-   counter-clockwise boundaries contribute positive area;
+-   clockwise boundaries contribute negative area;
+-   SVG, Canvas, and raster output use an explicit affine design-to-display transform, normally
+    including a negative Y scale;
+-   pointer coordinates are transformed immediately back into design space with the exact inverse
+    view transform before hit testing, dragging, snapping, or editing.
 -   area to the right of the direction of travel is positive.
 
 The signed model is intentional. Negative intermediate geometry is
