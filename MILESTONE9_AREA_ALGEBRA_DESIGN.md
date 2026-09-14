@@ -260,6 +260,10 @@ oriented ordinary region. Positive result layers remain CCW; negative result lay
 CW when reconstructed. Geometrically coincident same-direction output layers may then be compressed
 into positive multiplicity, while opposite layers cancel only when the field algebra proves it.
 
+A finite collection of closed oriented loops has winding zero at infinity. Consequently every
+positive superlevel and negative sublevel used above is bounded; level reduction never requires an
+explicit infinite exterior region or an open result boundary.
+
 Signed `add` is different and simpler. It is linear boundary accumulation: retain both operands'
 oriented contributions and perform only lossless coincident normalization. Intersections between
 noncoincident boundaries do not require a Boolean switch for addition.

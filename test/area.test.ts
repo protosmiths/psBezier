@@ -348,3 +348,27 @@ describe("whole-loop signed field operation table", () => {
     }
   });
 });
+
+describe("integer winding level-set algebra", () => {
+  function reconstruct(positive: readonly boolean[], negative: readonly boolean[]): number {
+    return positive.filter(Boolean).length - negative.filter(Boolean).length;
+  }
+
+  it("reconstructs join and meet exactly for every field value from -3 through 3", () => {
+    for (let first = -3; first <= 3; first += 1) {
+      for (let second = -3; second <= 3; second += 1) {
+        const levels = [1, 2, 3];
+        const join = reconstruct(
+          levels.map((level) => first >= level || second >= level),
+          levels.map((level) => first <= -level && second <= -level),
+        );
+        const meet = reconstruct(
+          levels.map((level) => first >= level && second >= level),
+          levels.map((level) => first <= -level || second <= -level),
+        );
+        assert.equal(join, Math.max(first, second), `join(${first}, ${second})`);
+        assert.equal(meet, Math.min(first, second), `meet(${first}, ${second})`);
+      }
+    }
+  });
+});
