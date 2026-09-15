@@ -349,6 +349,36 @@ General lossless normalization is a separate pass:
 5. retain one deterministic geometrically equivalent owner with the resulting orientation and
    positive multiplicity.
 
+### Binary Area operations and repeated reduction
+
+Collective extraction is scoped to the terms inside one `Area` operand. It does not authorize or
+require one global arrangement containing every operand in a larger expression.
+
+The geometry API remains binary:
+
+```text
+operate(Area A, Area B, join | meet) -> complete Area result
+```
+
+Because `join=max` and `meet=min` are associative, a sequence using one operation is evaluated by
+feeding each complete result into the next binary operation:
+
+```text
+R1 = join(A, B)
+R2 = join(R1, C)
+R3 = join(R2, D)
+```
+
+The same rule applies to `meet`. Each binary call collectively extracts only the levels of its two
+Area operands, combines corresponding ordinary regions, and reconstructs a complete normalized
+Area before that result is reused. It never folds the individual terms of an Area as though they
+were independent operands.
+
+Mixed expressions belong to a higher expression layer. For example, `(A join B) meet (C join D)`
+is evaluated as three ordinary binary Area calls. Associativity and distributivity may permit that
+higher layer to regroup or optimize an expression, but they do not enlarge the scope of one
+geometric arrangement or walk.
+
 ## 3. Candidate signed winding-field algebra
 
 For Areas `A` and `B`, define operations pointwise on their integer winding fields:
