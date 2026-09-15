@@ -2,6 +2,7 @@ export { createArea, createAreaDetailed } from "./area.js";
 export { classifySimpleLoopPairRelationship } from "./loop-pair-relationship.js";
 export { resolveWholeLoopOperation } from "./whole-loop-operation.js";
 export { operateAreaTermsDetailed } from "./term-operation.js";
+export { extractZeroSwitchAreaLevelsDetailed } from "./level-extraction.js";
 export type {
   Area,
   AreaConstructionIssue,
@@ -29,3 +30,10 @@ export type {
   AreaTermOperationIssueCode,
   AreaTermOperationReport,
 } from "./term-operation.js";
+export type {
+  AreaLevelExtractionIssue,
+  AreaLevelExtractionIssueCode,
+  AreaLevelExtractionReport,
+  CollectiveBoundarySample,
+  ExtractedAreaLevel,
+} from "./level-extraction.js";

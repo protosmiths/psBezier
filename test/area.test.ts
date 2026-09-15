@@ -8,6 +8,7 @@ import {
   classifySimpleLoopPairRelationship,
   createToleranceContext,
   extractPathInterval,
+  extractZeroSwitchAreaLevelsDetailed,
   point,
   operateAreaTermsDetailed,
   resolveWholeLoopOperation,
@@ -450,6 +451,76 @@ describe("two-term integer level geometry orchestration", () => {
     assert.deepEqual(
       report.area!.terms.map((term) => term.signedContribution).sort((a, b) => a - b),
       [-1, 2],
+    );
+  });
+});
+
+describe("collective zero-switch Area level extraction", () => {
+  it("extracts an outer boundary and nested negative hole as one positive level", () => {
+    const outer = square(0, 0, 10);
+    const hole = reversePath(square(2, 2, 6));
+    const source = createArea([{ path: outer }, { path: hole }], tolerance);
+    const report = extractZeroSwitchAreaLevelsDetailed(source, tolerance);
+    assert.equal(report.complete, true, JSON.stringify(report.issues));
+    assert.deepEqual(
+      report.levels.map((level) => [level.sign, level.level, level.paths.length]),
+      [[1, 1, 2]],
+    );
+    assert.deepEqual(
+      report.area!.terms.map((term) => term.signedContribution).sort((a, b) => a - b),
+      [-1, 1],
+    );
+  });
+
+  it("compresses repeated nested positive levels into multiplicity", () => {
+    const outer = square(0, 0, 10);
+    const inner = square(2, 2, 6);
+    const source = createArea([{ path: outer }, { path: inner, multiplicity: 2 }], tolerance);
+    const report = extractZeroSwitchAreaLevelsDetailed(source, tolerance);
+    assert.equal(report.complete, true, JSON.stringify(report.issues));
+    assert.deepEqual(
+      report.levels.map((level) => [level.level, level.paths.length]),
+      [
+        [1, 1],
+        [2, 1],
+        [3, 1],
+      ],
+    );
+    assert.deepEqual(
+      report.area!.terms.map((term) => term.multiplicity).sort((a, b) => a - b),
+      [1, 2],
+    );
+  });
+
+  it("keeps tangent-only independent loops in the zero-switch extractor", () => {
+    const source = createArea([{ path: square(0, 0) }, { path: square(1, 1) }], tolerance);
+    const report = extractZeroSwitchAreaLevelsDetailed(source, tolerance);
+    assert.equal(report.complete, true, JSON.stringify(report.issues));
+    assert.equal(report.levels[0]!.paths.length, 2);
+  });
+
+  it("refuses switching and coincident boundaries until atomic edge classes are available", () => {
+    const crossing = extractZeroSwitchAreaLevelsDetailed(
+      createArea([{ path: square(0, 0, 2) }, { path: square(1, 1, 2) }], tolerance),
+      tolerance,
+    );
+    assert.equal(crossing.complete, false);
+    assert.ok(
+      crossing.issues.some((value) => value.code === "unsupported-switching-topology"),
+      JSON.stringify(crossing.issues),
+    );
+
+    const coincident = extractZeroSwitchAreaLevelsDetailed(
+      createArea(
+        [{ path: square(0, 0, 2) }, { path: square(0, 0, 2), multiplicity: 2 }],
+        tolerance,
+      ),
+      tolerance,
+    );
+    assert.equal(coincident.complete, false);
+    assert.ok(
+      coincident.issues.some((value) => value.code === "unsupported-coincident-boundary"),
+      JSON.stringify(coincident.issues),
     );
   });
 });
