@@ -300,6 +300,41 @@ the edge so the selected ordinary level region has positive CCW orientation. Enu
 cycles; unresolved field samples, incomplete intersections, higher-valence ambiguity, or an
 unbalanced selected graph make that level explicitly incomplete.
 
+#### Coincident atomic edge classes
+
+First split every participating path at every relevant intersection and mapped overlap endpoint,
+including splits introduced by third-party boundaries. Two resulting atomic edge tiles belong to
+the same geometric edge class only when certified overlap correspondence covers both complete
+tiles and pairs their endpoint vertices. Take the transitive closure of those proven relationships;
+coordinate proximity alone never joins a class.
+
+Choose one deterministic member as the class's canonical geometric owner and direction. For every
+other member record whether its source direction agrees with (`+1`) or opposes (`-1`) that canonical
+direction. Ownership is selected once for the entire atomic class, not independently at each level
+or for pieces of the same tile.
+
+For a directed winding boundary of multiplicity `m`, the field jump in that boundary's own frame is
+
+```text
+W_left - W_right = m
+```
+
+regardless of whole-loop orientation. A CW negative loop places its negative interior on its right,
+so its directed jump is `0 - (-m) = +m`. Reversal negates the global field because it swaps the
+physical left and right sides; it does not make the reversed edge's own directed jump negative.
+
+Therefore the expected collective jump in the canonical class direction is
+
+```text
+J = sum(directionRelativeToOwner * multiplicity).
+```
+
+Independently sampled collective fields must satisfy `W_left - W_right = J`. This is a validation
+invariant, not the source of coincidence discovery. Same-direction duplicate contributions add;
+opposite-direction contributions cancel. Threshold extraction selects zero or one directed copy of
+the geometric class. If the selected side lies to the canonical owner's right, traverse the owned
+geometry in reverse for that level rather than selecting every coincident source copy.
+
 Once both input Areas have proven ordinary level regions, multi-Area `join` and `meet` use the same
 level table above and the existing ordinary-region Boolean primitive. This is associative at the
 semantic level. Diagnostics must still expose the input Area, sign, and level whose extraction or
