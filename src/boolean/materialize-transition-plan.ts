@@ -48,6 +48,14 @@ function isIncidence(value: object): value is IntersectionIncidence {
   );
 }
 
+function isPointLike(piece: CubicBezier, thresholdSquared: number): boolean {
+  return (
+    distanceSquared(piece.start, piece.control1) <= thresholdSquared &&
+    distanceSquared(piece.start, piece.control2) <= thresholdSquared &&
+    distanceSquared(piece.start, piece.end) <= thresholdSquared
+  );
+}
+
 /** Materializes exactly the source intervals selected by a completed transition plan. */
 export function materializeLoopPairTransitionPlan(
   plan: LoopPairTransitionPlan,
@@ -109,18 +117,20 @@ export function materializeLoopPairTransitionPlan(
         failed = true;
         break;
       }
-      const extracted = materializeIntersectionEdge(source);
-      if (
-        pieces.length > 0 &&
-        extracted.length > 0 &&
-        distanceSquared(pieces.at(-1)!.end, extracted[0]!.start) > thresholdSquared
-      ) {
+      const extracted = materializeIntersectionEdge(source).filter(
+        (piece) => !isPointLike(piece, thresholdSquared),
+      );
+      const joinGapSquared =
+        pieces.length > 0 && extracted.length > 0
+          ? distanceSquared(pieces.at(-1)!.end, extracted[0]!.start)
+          : 0;
+      if (joinGapSquared > thresholdSquared) {
         issues.push(
           issue(
             "discontinuous-join",
             cycleIndex,
             edgeIndex,
-            "consecutive planned source intervals do not meet within coordinate tolerance",
+            `consecutive planned source intervals are separated by ${Math.sqrt(joinGapSquared)}, exceeding coordinate tolerance ${tolerance.coordinate}`,
           ),
         );
         failed = true;
@@ -128,7 +138,18 @@ export function materializeLoopPairTransitionPlan(
       }
       pieces.push(...extracted);
     }
-    if (failed || pieces.length === 0) continue;
+    if (failed) continue;
+    if (pieces.length === 0) {
+      issues.push(
+        issue(
+          "empty-cycle",
+          cycleIndex,
+          null,
+          "a result cycle contains no geometrically significant source intervals",
+        ),
+      );
+      continue;
+    }
     if (distanceSquared(pieces.at(-1)!.end, pieces[0]!.start) > thresholdSquared) {
       issues.push(
         issue(

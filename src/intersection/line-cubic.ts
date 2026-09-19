@@ -30,6 +30,23 @@ function curvePoints(curve: CubicBezier): readonly [Point, Point, Point, Point] 
   return [curve.start, curve.control1, curve.control2, curve.end];
 }
 
+function curveParameterResolution(curve: CubicBezier, tolerance: ToleranceContext): number {
+  const points = curvePoints(curve);
+  let maximumControlEdge = 0;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const first = points[index]!;
+    const second = points[index + 1]!;
+    maximumControlEdge = Math.max(
+      maximumControlEdge,
+      Math.hypot(second.x - first.x, second.y - first.y),
+    );
+  }
+  const derivativeBound = 3 * maximumControlEdge;
+  return derivativeBound <= tolerance.coordinate
+    ? 1
+    : Math.max(tolerance.parameter, tolerance.coordinate / derivativeBound);
+}
+
 function intersectPointCubic(
   value: Point,
   curve: CubicBezier,
@@ -199,5 +216,17 @@ export function intersectLineCubic(
       ? result.occurrences[0].parameter
       : result.start.occurrences[0].parameter;
   results.sort((left, right) => firstParameter(left) - firstParameter(right));
-  return Object.freeze(results);
+  const curveParameterTolerance = curveParameterResolution(curve, tolerance);
+  const deduplicated = results.filter((result, index) => {
+    const previous = results[index - 1];
+    if (previous === undefined || previous.kind !== "point" || result.kind !== "point") return true;
+    return !(
+      Math.abs(result.occurrences[0].parameter - previous.occurrences[0].parameter) <=
+        lineParameterTolerance &&
+      Math.abs(result.occurrences[1].parameter - previous.occurrences[1].parameter) <=
+        curveParameterTolerance &&
+      distanceSquared(result.point, previous.point) <= tolerance.coordinate * tolerance.coordinate
+    );
+  });
+  return Object.freeze(deduplicated);
 }

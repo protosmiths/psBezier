@@ -177,6 +177,29 @@ describe("analytic line-cubic intersections", () => {
     assertNear(result.occurrences[0].parameter, 0.5);
   });
 
+  it("deduplicates a rounded-corner tangent at a shared line endpoint", () => {
+    const applicationTolerance = createToleranceContext({
+      coordinate: 1e-8,
+      discovery: 1e-5,
+      intersection: 1e-9,
+      parameter: 1e-10,
+      relative: 1e-12,
+    });
+    const shared = point(0.12701264850379276, 7.276549759403421);
+    const incoming = lineSegment(point(0.17065792664652465, 9.776986069564355), shared);
+    const roundedCorner = cubicBezier(
+      shared,
+      point(0.10517941767959729, 6.025724803209749),
+      point(1.1131563745036974, 5),
+      point(2.364171866416218, 5),
+    );
+    const result = requirePoint(
+      requireSingle(intersectLineCubic(incoming, roundedCorner, applicationTolerance)),
+    );
+    assertNear(result.occurrences[0].parameter, 1, applicationTolerance.parameter);
+    assertNear(result.occurrences[1].parameter, 0, applicationTolerance.parameter);
+  });
+
   it("filters intersections on the infinite line but outside the finite segment", () => {
     const shortLine = lineSegment(point(0, 0), point(2, 0));
     const curve = cubicBezier(point(5, -1), point(5, -0.5), point(5, 0.5), point(5, 1));
